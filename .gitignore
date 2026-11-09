@@ -3,4 +3,5 @@ dist/
 .env
 *.log
 coverage/
-.DS_Store.obsidian/
+.DS_Store
+.obsidian/
