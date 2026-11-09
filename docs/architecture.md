@@ -15,7 +15,7 @@
 | **Database & ORM** | PostgreSQL, Prisma ORM | Relational data store for Users, Skills Passports, Video Clips, Swipe Votes, Bounties, Wallets, and Payment Transactions. |
 | **Queue & Background Jobs** | Redis, BullMQ | Asynchronous job engine handling heavy tasks (Claude Vision clip analysis and Elo rating recalculations) without blocking HTTP threads. |
 | **AI Intelligence Engine** | Claude Vision API | Multimodal vision model running in background workers to analyze clip performance, extract metadata, and auto-draft Skills Passport summaries. |
-| **Financial Engine** | PayPal Developer Platform | Core payment integration handling one-tap unlock fees, bounty escrow authorization/capture, subscriptions, payouts, and webhooks. |
+| **Financial Engine** | PayPal Developer Platform | Core payment integration handling bounty escrow authorization/capture, subscriptions, payouts, and webhooks. |
 
 ---
 
@@ -29,7 +29,7 @@ The following table details the specific sponsor tools selected for **Play2Pro**
 | **AG Grid / AG Studio** *(Partner Bonus Eligible)* | Enterprise data grids, interactive charts, dynamic dashboards, and AI analytics. | • Power the **Skills Analytics Dashboard** on player profiles.<br>• Render verified gameplay stats, community ranking metrics, and sponsor ROI reports using AG Charts. | • React / Vite Frontend<br>• AG Grid React & AG Charts<br>• Fastify REST Analytics Endpoints | **Eligible for AG Grid Sponsor Prize ($5,000 top prize).** Provides production-ready dashboard visualizations. |
 | **Postman** | API design, sandbox testing, mock payloads, and webhook verification. | • Used by backend engineers to test PayPal REST endpoints (Orders, Payouts) and mock webhook responses before Nigel wires them into the React frontend. | • Postman Collection / Environment<br>• Fastify / Express Backend Routes<br>• PayPal Sandbox Credentials | Accelerates backend iteration and eliminates payload errors before frontend integration. |
 | **Render** *(Partner Bonus Eligible)* | Unified cloud hosting for web applications, databases, and background services. | • Hosts your **Node.js/Fastify API server**, managed **PostgreSQL database** (via Prisma), and **Redis worker node**. | • Render Web Service (Node.js)<br>• Managed PostgreSQL (Prisma ORM)<br>• Managed Redis (BullMQ Workers) | **Eligible for Render Sponsor Prize ($1,000 credits).** Provides unified, reliable deployment infrastructure. |
-| **Zapier MCP** | Connects AI tools and backend events to external business automations. | • Automatically trigger WhatsApp/email notifications to gamers when a bounty payout is released or a coach unlocks footage. | • Fastify Webhook Emitters<br>• Zapier MCP Server<br>• WhatsApp Business / Email APIs | Bridges backend state changes directly to real-time mobile push notifications for users. |
+| **Zapier MCP** | Connects AI tools and backend events to external business automations. | • Automatically trigger WhatsApp/email notifications to gamers when a bounty payout is released. | • Fastify Webhook Emitters<br>• Zapier MCP Server<br>• WhatsApp Business / Email APIs | Bridges backend state changes directly to real-time mobile push notifications for users. |
 
 ---
 

@@ -95,10 +95,9 @@ erDiagram
 ## 4. File References
 
 The implementation files are located in:
-* **Prisma ORM Schema:** [`prisma/schema.prisma`](file:///C:/Users/ANDREW/Documents/BARBAH%20GAMES/PayPal%20hackerthon/Pro2play/prisma/schema.prisma)
-* **PostgreSQL Init SQL Script:** [`prisma/init.sql`](file:///C:/Users/ANDREW/Documents/BARBAH%20GAMES/PayPal%20hackerthon/Pro2play/prisma/init.sql)
-* **Architecture Blueprint:** [`play2pro_architecture_tech_stack.md`](file:///C:/Users/ANDREW/Documents/BARBAH%20GAMES/PayPal%20hackerthon/Pro2play/Pro2play_mds/play2pro_architecture_tech_stack.md)
-* **Master Specification:** [`Play2Pro Turning Casual Gamers into Professionals.md`](file:///C:/Users/ANDREW/Documents/BARBAH%20GAMES/PayPal%20hackerthon/Pro2play/Pro2play_mds/Play2Pro%20Turning%20Casual%20Gamers%20into%20Professionals.md)
+* **Prisma ORM Schema:** [`prisma/schema.prisma`](../prisma/schema.prisma)
+* **PostgreSQL Init SQL Script:** [`prisma/init.sql`](../prisma/init.sql)
+* **Architecture Blueprint:** [`architecture.md`](architecture.md)
 
 ---
 
