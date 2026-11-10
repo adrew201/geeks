@@ -15,7 +15,7 @@ const BENEFITS = [
   },
   {
     icon: Award,
-    title: "Skills Passport & Telemetry",
+    title: "Gamer ID & Telemetry",
     text: "Evidence-based performance metrics and community signals.",
   },
   {

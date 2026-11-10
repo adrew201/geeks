@@ -94,8 +94,8 @@ export function AiSummaryReview({ profile, pendingAction, onAccept, onReject, on
           {pending
             ? "Only you can see this until you accept it."
             : desktop
-              ? "Automated clip analysis generated from submitted gameplay evidence. Shown on your public passport."
-              : "Shown on your public passport."}
+              ? "Automated clip analysis generated from submitted gameplay evidence. Shown on your public Gamer ID."
+              : "Shown on your public Gamer ID."}
         </p>
       </div>
 
@@ -197,7 +197,7 @@ export function AiSummaryReview({ profile, pendingAction, onAccept, onReject, on
         }
       >
         <p className="text-13 text-fg-secondary">
-          The summary will be removed from your Skills Passport. You can't undo this.
+          The summary will be removed from your Gamer ID. You can't undo this.
         </p>
       </Modal>
     </Shell>

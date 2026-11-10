@@ -35,7 +35,7 @@ export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
           </div>
           <ButtonLink to={ROUTES.passport}>
             <Award className="size-3.5" aria-hidden="true" />
-            View My Skills Passport
+            View My Gamer ID
           </ButtonLink>
         </>
       ) : (

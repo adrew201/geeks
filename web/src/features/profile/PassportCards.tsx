@@ -40,7 +40,7 @@ export function PassportCard({ summary, missing }: { summary: AiSkillSummary | n
     <Card as="section" large aria-labelledby="passport-title">
       <SectionHeader
         id="passport-title"
-        title="Skills Passport"
+        title="Gamer ID"
         subtitle="Performance evidence summary"
         aside={summary && <TrustBadge level="ai" />}
       />
@@ -119,7 +119,7 @@ export function TrustBar({ levels }: { levels: TrustLevel[] }) {
 export function MobilePassportCard({ summary, missing }: { summary: AiSkillSummary | null; missing: string[] }) {
   return (
     <section aria-labelledby="passport-title" className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3">
-      <SectionHeader id="passport-title" size="xs" title="Skills Passport" aside={summary && <TrustBadge level="ai" size="sm" />} />
+      <SectionHeader id="passport-title" size="xs" title="Gamer ID" aside={summary && <TrustBadge level="ai" size="sm" />} />
       {missing.length > 0 && <IncompleteNotice missing={missing} owner={false} compact />}
       {summary ? (
         <p className="text-11 leading-[1.4] text-fg-secondary">“{summary.summary}”</p>

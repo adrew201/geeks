@@ -109,11 +109,11 @@ export function IncompleteNotice({
 }) {
   return (
     <div className={cn("rounded-md border border-warning/35 bg-warning/14", compact ? "p-2.5" : "p-4")}>
-      <p className={cn("font-bold text-warning", compact ? "text-11" : "text-13")}>Incomplete Skills Passport</p>
+      <p className={cn("font-bold text-warning", compact ? "text-11" : "text-13")}>Incomplete Gamer ID</p>
       <p className={cn("mt-1 text-fg-secondary", compact ? "text-10" : "text-12")}>
         {owner
-          ? `Your passport is missing your ${joinList(missing)}.`
-          : "This gamer is still building their Skills Passport."}
+          ? `Your Gamer ID is missing your ${joinList(missing)}.`
+          : "This gamer is still building their Gamer ID."}
       </p>
     </div>
   );

@@ -151,9 +151,9 @@ export function useGamerProfile(gamerId: string) {
         runUpdate(
           "accept",
           { aiSummaryStatus: AI_SUMMARY_STATUS.ACCEPTED },
-          "AI summary accepted and added to your public passport.",
+          "AI summary accepted and added to your public Gamer ID.",
         ),
-      rejectSummary: () => runUpdate("reject", { aiSummary: null }, "AI summary removed from your passport."),
+      rejectSummary: () => runUpdate("reject", { aiSummary: null }, "AI summary removed from your Gamer ID."),
       editSummary: (summary: string) =>
         profile?.aiSummary
           ? runUpdate(

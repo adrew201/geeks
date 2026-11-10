@@ -247,7 +247,7 @@ function DesktopOwnerProfile(props: OwnerProps) {
   return (
     <>
       <PageHeader
-        title="My Skills Passport"
+        title="My Gamer ID"
         description="Your gaming identity, skills and evidence in one unified professional platform."
         actions={
           <>
@@ -257,7 +257,7 @@ function DesktopOwnerProfile(props: OwnerProps) {
             </Button>
             <Button onClick={model.share}>
               <Share2 className="size-3.5" aria-hidden="true" />
-              Share Passport
+              Share Gamer ID
             </Button>
           </>
         }
@@ -299,9 +299,9 @@ function MobileOwnerProfile(props: OwnerProps) {
   return (
     <>
       <PageHeader
-        title="Skills Passport"
+        title="Gamer ID"
         actions={
-          <Button variant="secondary" size="icon" aria-label="Share passport" onClick={model.share}>
+          <Button variant="secondary" size="icon" aria-label="Share Gamer ID" onClick={model.share}>
             <Share2 className="size-3.5" aria-hidden="true" />
           </Button>
         }
@@ -340,18 +340,18 @@ function useSharePassport(profile: GamerProfile) {
       toast.show(
         profile.visibility === PROFILE_VISIBILITY.PRIVATE
           ? "Link copied. Your profile is private, so others will see a restricted page."
-          : "Passport link copied.",
+          : "Gamer ID link copied.",
         { tone: "success" },
       );
     } catch {
-      toast.show(`Couldn't copy the link. Your passport is at ${url}`, { tone: "error" });
+      toast.show(`Couldn't copy the link. Your Gamer ID is at ${url}`, { tone: "error" });
     }
   };
 }
 
 /** Wraps loading/error states: desktop viewers have no page header (12D); everyone else does. */
 function StateFrame({ desktop, ownRoute, children }: { desktop: boolean; ownRoute: boolean; children: ReactNode }) {
-  const title = ownRoute ? (desktop ? "My Skills Passport" : "Skills Passport") : "Gamer Profile";
+  const title = ownRoute ? (desktop ? "My Gamer ID" : "Gamer ID") : "Gamer Profile";
   return (
     <>
       {(ownRoute || !desktop) && <PageHeader title={title} />}
@@ -427,7 +427,7 @@ function NotFound({ ownRoute }: { ownRoute: boolean }) {
     return (
       <EmptyState
         icon={<SearchX />}
-        title="Your Skills Passport isn't set up yet"
+        title="Your Gamer ID isn't set up yet"
         description="We couldn't find a Gamer ID for your account."
         action={<ButtonLink to={ROUTES.arena}>Go to the Arena</ButtonLink>}
       />

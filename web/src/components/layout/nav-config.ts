@@ -49,7 +49,7 @@ export type NavAudience = "gamer" | "coach" | "sponsor";
 // Icons follow the prototypes: layout-dashboard, award, flame (09M Arena), trophy,
 // wallet, crosshair, upload-cloud, compass.
 const DASHBOARD: NavItem = { label: "Dashboard", to: ROUTES.dashboard, icon: LayoutDashboard };
-const PASSPORT: NavItem = { label: "Passport", to: ROUTES.passport, icon: Award };
+const PASSPORT: NavItem = { label: "Gamer ID", to: ROUTES.passport, icon: Award };
 const ARENA: NavItem = { label: "Arena", to: ROUTES.arena, icon: Flame };
 const LEADERBOARD: NavItem = { label: "Leaderboard", to: ROUTES.leaderboard, icon: Trophy };
 const WALLET: NavItem = { label: "Wallet", to: ROUTES.wallet, icon: Wallet };
@@ -107,7 +107,7 @@ export const PUBLIC_NAV: PublicLink[] = [
   { label: "For Gamers", to: section("for-gamers") },
   { label: "For Coaches", to: section("for-coaches") },
   { label: "For Sponsors", to: section("for-sponsors") },
-  { label: "Skills Passport", to: section("passport") },
+  { label: "Gamer ID", to: section("passport") },
 ];
 
 /** 01D footer columns, with unlock wording removed (decision 3). */
@@ -116,7 +116,7 @@ export const FOOTER_COLUMNS: Array<{ title: string; links: PublicLink[] }> = [
     title: "Product",
     links: [
       { label: "How It Works", to: section("how-it-works") },
-      { label: "Skills Passport", to: section("passport") },
+      { label: "Gamer ID", to: section("passport") },
       { label: "Leaderboard", to: ROUTES.leaderboard },
     ],
   },
