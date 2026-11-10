@@ -154,7 +154,10 @@ export type ApiRole = (typeof API_ROLE)[keyof typeof API_ROLE];
  * (the standard JWT expiry claim; README sets JWT_EXPIRES_IN=7d).
  */
 export interface RawJwtPayload {
-  userId: string;
+  /** The API signs the user id as the standard `sub` claim. */
+  sub?: string;
+  /** Legacy name, still accepted (the mocks use it). */
+  userId?: string;
   role: string;
   tier?: string;
   /** Seconds since the epoch. */
@@ -172,6 +175,8 @@ export interface JwtPayload {
 export interface SignupRequest {
   email: string;
   password: string;
+  /** Required by the API (1-60 characters). */
+  displayName: string;
   /** Sent in whichever format API_ROLE_FORMAT selects (lib/role-adapter.ts). */
   role: ApiRole;
 }

@@ -17,6 +17,16 @@ export function validateEmail(email: string): string | null {
   return null;
 }
 
+const DISPLAY_NAME_MAX = 60;
+
+/** The API requires a display name of 1-60 characters. */
+export function validateDisplayName(name: string): string | null {
+  const value = name.trim();
+  if (!value) return "Enter your name.";
+  if (value.length > DISPLAY_NAME_MAX) return `Use ${DISPLAY_NAME_MAX} characters or fewer.`;
+  return null;
+}
+
 /** Signup only. Login just needs a non-empty password, so older accounts can still log in. */
 export function validateNewPassword(password: string): string | null {
   if (password.length < PASSWORD_MIN_LENGTH || !/\d/.test(password)) return PASSWORD_RULE;
