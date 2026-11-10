@@ -1,7 +1,10 @@
+-- SUPERSEDED (10 Nov 2026): this file describes the OLD schema (UserRole,
+-- Wallet/Transaction, Decimal money). The source of truth is
+-- prisma/schema.prisma and prisma/migrations/. Do not run this file.
 -- ============================================================================
 -- Play2Pro - PostgreSQL Database Initialization Script
 -- Target: PostgreSQL 15+ (Render Managed Database)
--- Matches: Prisma Schema v1.0
+-- Matches: Prisma Schema v1.0 (old)
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
