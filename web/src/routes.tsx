@@ -5,6 +5,9 @@ import { RequireAuth } from "./features/auth/RequireAuth.tsx";
 import SignupPage from "./features/auth/SignupPage.tsx";
 import FeedPage from "./features/feed/FeedPage.tsx";
 import LeaderboardPage from "./features/leaderboard/LeaderboardPage.tsx";
+import GamerProfilePage from "./features/profile/GamerProfilePage.tsx";
+import PassportPage from "./features/profile/PassportPage.tsx";
+import ProfileLayout from "./features/profile/ProfileLayout.tsx";
 import AppLayout from "./layouts/AppLayout.tsx";
 import AuthLayout from "./layouts/AuthLayout.tsx";
 import PublicLayout from "./layouts/PublicLayout.tsx";
@@ -27,6 +30,11 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    // Public Gamer ID (README §14: no auth). App shell when signed in, public shell otherwise.
+    element: <ProfileLayout />,
+    children: [{ path: ROUTES.gamerProfile, element: <GamerProfilePage /> }],
+  },
+  {
     element: <AuthLayout />,
     children: [
       { path: ROUTES.signup, element: <SignupPage /> },
@@ -47,7 +55,7 @@ export const router = createBrowserRouter([
             element: <RequireAuth roles={[ROLE.GAMER]} />,
             children: [
               { path: ROUTES.dashboard, element: <ComingSoonPage title="Dashboard" /> },
-              { path: ROUTES.passport, element: <ComingSoonPage title="Skills Passport" /> },
+              { path: ROUTES.passport, element: <PassportPage /> },
               { path: ROUTES.wallet, element: <ComingSoonPage title="Wallet" /> },
               { path: ROUTES.submitGameplay, element: <ComingSoonPage title="Submit Gameplay" /> },
             ],

@@ -2,9 +2,11 @@
 // placeholders (README §11: use only links we're allowed to use). Money in integer cents.
 
 import {
+  AI_SUMMARY_STATUS,
   BOUNTY_STATUS,
   BOUNTY_TYPE,
   CLIP_STATUS,
+  PROFILE_VISIBILITY,
   ROLE,
   TIER,
   WALLET_ENTRY_KIND,
@@ -61,7 +63,9 @@ export const mockGamers: GamerProfile[] = [
       strengths: ["clutch", "aim"],
       roles: ["duelist"],
     },
+    aiSummaryStatus: AI_SUMMARY_STATUS.ACCEPTED,
     radScore: 9420,
+    visibility: PROFILE_VISIBILITY.PUBLIC,
   },
   {
     id: "gmr_phantomx",
@@ -72,6 +76,7 @@ export const mockGamers: GamerProfile[] = [
     region: "Kenya",
     aiSummary: null,
     radScore: 9810,
+    visibility: PROFILE_VISIBILITY.PUBLIC,
   },
   {
     id: "gmr_novastrike",
@@ -82,6 +87,7 @@ export const mockGamers: GamerProfile[] = [
     region: "Africa",
     aiSummary: null,
     radScore: 9105,
+    visibility: PROFILE_VISIBILITY.PUBLIC,
   },
   {
     id: "gmr_ghostaim",
@@ -92,6 +98,7 @@ export const mockGamers: GamerProfile[] = [
     region: "Kenya",
     aiSummary: null,
     radScore: 8720,
+    visibility: PROFILE_VISIBILITY.PUBLIC,
   },
   {
     id: "gmr_vortex",
@@ -102,6 +109,7 @@ export const mockGamers: GamerProfile[] = [
     region: "Ghana",
     aiSummary: null,
     radScore: 8540,
+    visibility: PROFILE_VISIBILITY.PUBLIC,
   },
 ];
 

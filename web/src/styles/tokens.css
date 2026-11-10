@@ -236,6 +236,16 @@
   );
 }
 
+/* Violet corner glow: radial-gradient(circle at 0% 0%, ai-violet .08–.12, transparent 60–70%)
+   (12D .profile-header-card, 12M identity card, 06D .ai-card, 06M AI card), unified at 12%. */
+@utility bg-glow-ai {
+  background-image: radial-gradient(
+    circle at 0% 0%,
+    color-mix(in srgb, var(--color-ai) 12%, transparent),
+    transparent 70%
+  );
+}
+
 /* ==========================================================================
    ANIMATION NOTES FROM THE PROTOTYPES (verbatim; docs/ui-audit.md §5b)
    These are NOT implemented yet. They describe planned motion that the HTML

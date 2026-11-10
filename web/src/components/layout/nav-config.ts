@@ -27,11 +27,13 @@ export const ROUTES = {
   bounties: "/bounties",
   submitGameplay: "/clips/new",
   discover: "/discover",
+  /** Gamer profile (pages 12 + 06). Build links with gamerProfilePath(). */
+  gamerProfile: "/gamers/:id",
   privacy: "/privacy",
   terms: "/terms",
 } as const;
 
-/** Public Gamer ID (page 12, docs/ui-audit.md §9). The page isn't routed yet. */
+/** Public Gamer ID (pages 12 + 06, docs/ui-audit.md §9). */
 export function gamerProfilePath(gamerId: string): string {
   return `/gamers/${encodeURIComponent(gamerId)}`;
 }

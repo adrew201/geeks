@@ -201,7 +201,35 @@ export interface AiSkillSummary {
   roles: string[];
 }
 
-/** Public Gamer ID: GET /api/v1/gamers/:id. Fields per README §13 GamerProfile. */
+/**
+ * UNCONFIRMED (ask Rabasa): profile visibility. Pages 06/12 have a Public/Private toggle and
+ * a "Restricted Access" state, but README §13 GamerProfile has no visibility field. The UI
+ * shows the toggle and the PUBLIC/PRIVATE badge only when the API sends this field.
+ */
+export const PROFILE_VISIBILITY = {
+  PUBLIC: "PUBLIC",
+  PRIVATE: "PRIVATE",
+} as const;
+export type ProfileVisibility = (typeof PROFILE_VISIBILITY)[keyof typeof PROFILE_VISIBILITY];
+
+/**
+ * UNCONFIRMED (ask Rabasa): owner review of the AI skill summary (06D Accept / Reject / Edit).
+ * README §10 only says the job writes `aiSummary`. Assumed: a new summary starts
+ * PENDING_REVIEW and is public once ACCEPTED. A missing field is treated as ACCEPTED.
+ */
+export const AI_SUMMARY_STATUS = {
+  PENDING_REVIEW: "PENDING_REVIEW",
+  ACCEPTED: "ACCEPTED",
+} as const;
+export type AiSummaryStatus = (typeof AI_SUMMARY_STATUS)[keyof typeof AI_SUMMARY_STATUS];
+
+/**
+ * Public Gamer ID: GET /api/v1/gamers/:id. Fields per README §13 GamerProfile.
+ * UNCONFIRMED: which id `:id` takes. The app links with `id`, but /passport only knows the
+ * JWT `userId` (README §18), so features/profile/api.ts assumes the route also accepts a
+ * userId. Alternatives to ask for: `gamerId` in the JWT, or GET /gamers/me.
+ * UNCONFIRMED: a private profile is assumed to answer 403 to anyone but the owner.
+ */
 export interface GamerProfile {
   id: string;
   userId: string;
@@ -211,13 +239,34 @@ export interface GamerProfile {
   region: string | null;
   aiSummary: AiSkillSummary | null;
   radScore: number;
+  /** UNCONFIRMED: not in README §13 (see PROFILE_VISIBILITY). */
+  visibility?: ProfileVisibility;
+  /** UNCONFIRMED: not in README §13 (see AI_SUMMARY_STATUS). */
+  aiSummaryStatus?: AiSummaryStatus;
 }
 
-/** Assumed: GET /api/v1/gamers/:id/dashboard ("stats for AG Charts"). Wallet only for the owner. */
+/**
+ * UNCONFIRMED body for a profile update. README §14 has no write route for GamerProfile, so
+ * PATCH /api/v1/gamers/:id is assumed (features/profile/api.ts). Used by the 06D owner
+ * actions: visibility toggle, and accept / reject / edit of the AI summary.
+ */
+export interface UpdateGamerProfileRequest {
+  visibility?: ProfileVisibility;
+  aiSummary?: AiSkillSummary | null;
+  aiSummaryStatus?: AiSummaryStatus;
+}
+
+/**
+ * UNCONFIRMED: GET /api/v1/gamers/:id/dashboard. README §14 only says "Stats for AG Charts",
+ * guarded owner / COACH (read-only) / SPONSOR (summary only); §18 adds "plus wallet" for
+ * the owner. Assumed: one envelope for all three; SPONSOR gets it without `clips` and
+ * without the wallet fields, and only the owner gets the wallet fields.
+ */
 export interface GamerDashboard {
   profile: GamerProfile;
   radScoreHistory: Array<{ date: IsoDate; radScore: number }>;
-  clips: Clip[];
+  /** Absent for SPONSOR ("summary only"). */
+  clips?: Clip[];
   walletBalance?: Cents;
   walletEntries?: WalletEntry[];
 }

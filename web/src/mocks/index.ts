@@ -5,15 +5,20 @@ import { ApiError } from "../lib/api-error.ts";
 import { fromApiRole, toApiRole } from "../lib/role-adapter.ts";
 import { getSession } from "../lib/session.ts";
 import {
+  AI_SUMMARY_STATUS,
   API_ERROR_CODE,
+  PROFILE_VISIBILITY,
+  ROLE,
   TIER,
   type AuthResponse,
   type DonationResponse,
   type FeedPage,
   type GamerDashboard,
+  type GamerProfile,
   type LeaderboardResponse,
   type LoginRequest,
   type SignupRequest,
+  type UpdateGamerProfileRequest,
   type User,
 } from "../types/api.ts";
 import {
@@ -65,8 +70,8 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
 
 /**
  * QA switch for states the happy-path fixtures never reach. Add `?mock=<scenario>` to the
- * page URL, e.g. /feed?mock=vote-fail, /leaderboard?mock=empty, /login?mock=auth-fail or
- * /login?mock=short-session. Mock mode only.
+ * page URL, e.g. /feed?mock=vote-fail, /leaderboard?mock=empty, /login?mock=auth-fail,
+ * /login?mock=short-session or /gamers/gmr_shadowviper?mock=profile-private. Mock mode only.
  */
 type MockScenario =
   | "empty"
@@ -75,7 +80,15 @@ type MockScenario =
   | "vote-404"
   | "leaderboard-fail"
   | "auth-fail"
-  | "short-session";
+  | "short-session"
+  | "profile-fail"
+  | "profile-incomplete"
+  | "profile-no-ai"
+  | "profile-summary-pending"
+  | "profile-private"
+  | "profile-no-clips"
+  | "profile-update-fail"
+  | "dashboard-fail";
 
 function scenario(): MockScenario | null {
   if (typeof window === "undefined") return null;
@@ -212,23 +225,94 @@ route("GET", "/api/v1/leaderboard", ({ query }): LeaderboardResponse => {
   return rows.map((entry, index) => ({ ...entry, rank: index + 1 }));
 });
 
-route("GET", "/api/v1/gamers/:id", ({ params }) => {
-  return mockGamers.find((gamer) => gamer.id === params.id) ?? notFound("Gamer not found.");
+/* ------------------------------ gamer profile ------------------------------ */
+
+/**
+ * Finds a gamer by profile id or by userId. UNCONFIRMED: mirrors the assumption in
+ * features/profile/api.ts that /passport can load GET /gamers/:userId.
+ */
+function findGamer(id: string): GamerProfile {
+  return (
+    mockGamers.find((gamer) => gamer.id === id || gamer.userId === id) ?? notFound("Gamer not found.")
+  );
+}
+
+/**
+ * Profile QA scenarios (page 12 state toolbar), applied to a copy so fixtures stay intact:
+ * ?mock=profile-incomplete (state B), profile-no-ai (C), profile-summary-pending (06 review),
+ * profile-private (G), profile-fail, plus profile-no-clips / dashboard-fail on the dashboard.
+ */
+function withProfileScenario(gamer: GamerProfile): GamerProfile {
+  switch (scenario()) {
+    case "profile-incomplete":
+      return { ...gamer, platforms: [], region: null };
+    case "profile-no-ai":
+      return { ...gamer, aiSummary: null, aiSummaryStatus: undefined };
+    case "profile-summary-pending":
+      return gamer.aiSummary ? { ...gamer, aiSummaryStatus: AI_SUMMARY_STATUS.PENDING_REVIEW } : gamer;
+    case "profile-private":
+      return { ...gamer, visibility: PROFILE_VISIBILITY.PRIVATE };
+    default:
+      return gamer;
+  }
+}
+
+function isOwnerOf(gamer: GamerProfile): boolean {
+  return getSession()?.userId === gamer.userId;
+}
+
+// UNCONFIRMED: a private profile answers 403 to everyone but its owner.
+route("GET", "/api/v1/gamers/:id", ({ params }): GamerProfile => {
+  if (scenario() === "profile-fail") serverError();
+  const gamer = withProfileScenario(findGamer(params.id));
+  if (gamer.visibility === PROFILE_VISIBILITY.PRIVATE && !isOwnerOf(gamer)) {
+    throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "This profile is private.");
+  }
+  return gamer;
 });
 
+// README §14 guard: owner, COACH (read-only), SPONSOR (summary only). Wallet for the owner only.
 route("GET", "/api/v1/gamers/:id/dashboard", ({ params }): GamerDashboard => {
-  const profile = mockGamers.find((gamer) => gamer.id === params.id) ?? notFound("Gamer not found.");
-  return {
+  if (scenario() === "dashboard-fail") serverError();
+  const session = getSession();
+  if (!session) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  const profile = withProfileScenario(findGamer(params.id));
+  const owner = isOwnerOf(profile);
+  if (!owner && session.role !== ROLE.COACH && session.role !== ROLE.SPONSOR) {
+    throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "You can't view this dashboard.");
+  }
+  const summary: GamerDashboard = {
     profile,
     radScoreHistory: [
       { date: "2026-11-07T00:00:00.000Z", radScore: profile.radScore - 260 },
       { date: "2026-11-08T00:00:00.000Z", radScore: profile.radScore - 120 },
       { date: "2026-11-09T00:00:00.000Z", radScore: profile.radScore },
     ],
-    clips: mockClips.filter((clip) => clip.ownerId === profile.id),
-    walletBalance: mockWalletEntries.reduce((sum, entry) => sum + entry.amount, 0),
-    walletEntries: mockWalletEntries,
   };
+  if (!owner && session.role === ROLE.SPONSOR) return summary;
+  const clips =
+    scenario() === "profile-no-clips" ? [] : mockClips.filter((clip) => clip.ownerId === profile.id);
+  if (!owner) return { ...summary, clips };
+  const walletEntries = mockWalletEntries.filter((entry) => entry.userId === profile.userId);
+  return {
+    ...summary,
+    clips,
+    walletBalance: walletEntries.reduce((sum, entry) => sum + entry.amount, 0),
+    walletEntries,
+  };
+});
+
+// UNCONFIRMED endpoint (see updateGamerProfile). Owner only; edits the fixture for this tab.
+route("PATCH", "/api/v1/gamers/:id", ({ params, body }): GamerProfile => {
+  if (scenario() === "profile-update-fail") serverError();
+  const gamer = findGamer(params.id);
+  if (!isOwnerOf(gamer)) throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Only the owner can edit.");
+  const changes = (body ?? {}) as UpdateGamerProfileRequest;
+  if (changes.visibility !== undefined) gamer.visibility = changes.visibility;
+  if (changes.aiSummary !== undefined) gamer.aiSummary = changes.aiSummary;
+  if (changes.aiSummaryStatus !== undefined) gamer.aiSummaryStatus = changes.aiSummaryStatus;
+  if (gamer.aiSummary === null) gamer.aiSummaryStatus = undefined;
+  return gamer;
 });
 
 route("GET", "/api/v1/bounties", () => mockBounties);
