@@ -2,16 +2,26 @@ import { Award, CloudUpload } from "lucide-react";
 import { ROUTES } from "../../components/layout/nav-config.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { ButtonLink } from "../../components/ui/Button.tsx";
-import type { LeaderboardMe } from "../../types/api.ts";
-import { SCORE_LABEL, formatScore, gameName } from "./rank-styles.ts";
+import type { LeaderboardEntry } from "../../types/api.ts";
+import { LEADERBOARD_SIZE, gameFilterLabel, type GameFilter } from "./api.ts";
+import { SCORE_LABEL, formatScore } from "./rank-styles.ts";
 
-// 10D .your-rank-card and 10M "YOUR RANKING" strip. "+6 this week" is hidden: no trend field.
-// `me` comes from the leaderboard response, so a user ranked outside the returned rows
-// still sees their position. It is null for coaches, sponsors and gamers with no clips in
-// the selected game: only then is "not ranked yet" shown (10D state D).
-// `me` has no gamerTag or region, so the card shows rank, game and score only.
+// 10D .your-rank-card and 10M "YOUR RANKING" strip, shown to gamers only. "+6 this week" is
+// hidden: no trend field. The API returns the top 50 and has no "my position" field, so `me`
+// is the gamer's own entry in that list, or null when they're below it (10D state D). Below
+// the top 50 the card can't show their rank, only that they aren't in it.
 
-export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
+interface YourPositionProps {
+  me: LeaderboardEntry | null;
+  game: GameFilter;
+}
+
+/** "Valorant", or "overall" for the All Games board. */
+function boardName(game: GameFilter): string {
+  return game ? gameFilterLabel(game) : "overall";
+}
+
+export function DesktopYourPosition({ me, game }: YourPositionProps) {
   return (
     <section
       aria-labelledby="your-position-title"
@@ -23,11 +33,12 @@ export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
             <h2 id="your-position-title" className="text-12 font-bold text-primary uppercase">
               Your position
             </h2>
-            <Badge tone="blue">{gameName(me.game)}</Badge>
+            <Badge tone="blue">{gameFilterLabel(game)}</Badge>
           </div>
           <div className="flex items-center gap-4">
             <p className="font-display text-40 leading-none font-bold text-primary">#{me.rank}</p>
             <div className="min-w-0">
+              <p className="truncate text-16 font-extrabold">{me.gamerTag}</p>
               <p className="text-12 text-fg-muted">
                 {SCORE_LABEL}: <strong className="text-fg">{formatScore(me.radScore)}</strong>
               </p>
@@ -44,9 +55,11 @@ export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
             Your position
           </h2>
           <div className="flex flex-col gap-1">
-            <p className="text-14 font-bold">Your ranking is not available yet.</p>
+            <p className="text-14 font-bold">
+              You're not in the top {LEADERBOARD_SIZE} {game ? `for ${boardName(game)}` : "overall"} yet.
+            </p>
             <p className="text-12 text-fg-muted">
-              Complete your profile and submit gameplay footage to get ranked.
+              Submit gameplay and earn community votes to climb the rankings.
             </p>
           </div>
           <ButtonLink to={ROUTES.submitGameplay} size="sm" className="self-start">
@@ -59,7 +72,7 @@ export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
   );
 }
 
-export function MobileYourPosition({ me }: { me: LeaderboardMe | null }) {
+export function MobileYourPosition({ me, game }: YourPositionProps) {
   return (
     <section
       aria-label="Your ranking"
@@ -67,7 +80,9 @@ export function MobileYourPosition({ me }: { me: LeaderboardMe | null }) {
     >
       <div className="min-w-0">
         <p className="text-9 font-bold text-primary uppercase">Your ranking</p>
-        <p className="truncate text-13 font-extrabold">{me ? `#${me.rank} in ${gameName(me.game)}` : "Not ranked yet"}</p>
+        <p className="truncate text-13 font-extrabold">
+          {me ? `#${me.rank} ${game ? `in ${boardName(game)}` : "overall"}` : `Not in the top ${LEADERBOARD_SIZE} yet`}
+        </p>
       </div>
       {me ? (
         <p className="font-display text-14 font-bold text-primary">{formatScore(me.radScore)}</p>

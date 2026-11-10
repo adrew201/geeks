@@ -35,6 +35,9 @@ export interface PurposeCopy {
   /** Third tracker step (15 had "3. Content unlock", removed with decision 3). */
   finalStep: string;
   finalStepDescription: (recipient: string | undefined) => string;
+  /** Title and badge once the backend confirms. Bounty funds are held, not captured. */
+  confirmedTitle: string;
+  confirmedBadge: string;
   confirmedDescription: (recipient: string | undefined) => string;
   /** Restart button label for failed / cancelled / expired. */
   restartLabel: string;
@@ -46,6 +49,8 @@ export const PURPOSE_COPY: Record<PaymentPurpose, PurposeCopy> = {
     finalStep: "Donation delivered",
     finalStepDescription: (recipient) =>
       `The donation is credited to ${recipient ? `${recipient}'s` : "the gamer's"} wallet once payment is verified.`,
+    confirmedTitle: "Payment confirmed!",
+    confirmedBadge: "Payment verified",
     confirmedDescription: (recipient) =>
       `PayPal confirmed your payment and your donation has been credited to ${recipient ? `${recipient}'s` : "the gamer's"} wallet. Thanks for backing them!`,
     restartLabel: "Donate again",
@@ -54,13 +59,18 @@ export const PURPOSE_COPY: Record<PaymentPurpose, PurposeCopy> = {
     noun: "bounty funding",
     finalStep: "Bounty published",
     finalStepDescription: () => "The bounty opens once PayPal confirms the funds are held.",
-    confirmedDescription: () => "PayPal confirmed the funds are held. Your bounty is now open.",
+    confirmedTitle: "Funds held, bounty open",
+    confirmedBadge: "Funds held",
+    confirmedDescription: () =>
+      "PayPal confirmed the reward is held. Nothing is charged until you confirm a winner, and the hold is released if nobody wins by the deadline.",
     restartLabel: "Try funding again",
   },
   [PAYMENT_PURPOSE.SUBSCRIPTION]: {
     noun: "subscription",
     finalStep: "Plan activated",
     finalStepDescription: () => "Your plan activates once PayPal confirms the subscription.",
+    confirmedTitle: "Payment confirmed!",
+    confirmedBadge: "Payment verified",
     confirmedDescription: () => "PayPal confirmed your subscription. Your plan is now active.",
     restartLabel: "Try again",
   },

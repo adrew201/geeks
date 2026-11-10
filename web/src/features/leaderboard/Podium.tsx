@@ -3,15 +3,15 @@ import { Avatar } from "../../components/ui/Avatar.tsx";
 import { ButtonLink } from "../../components/ui/Button.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { cn } from "../../lib/cn.ts";
-import type { LeaderboardRow } from "../../types/api.ts";
-import { SCORE_LABEL, formatScore, gameName } from "./rank-styles.ts";
+import type { LeaderboardEntry } from "../../types/api.ts";
+import { SCORE_LABEL, formatScore } from "./rank-styles.ts";
 
 // 10D "SECTION E: TOP THREE GAMERS PODIUM": shown in 2-1-3 order, #1 taller and gold.
 // Hover lift: 10D:469 `.podium-card:hover { transform: translateY(-4px); }` with the
 // card's `transition: transform 0.2s ease` (10D:467).
-// Region under the gamer tag is hidden: leaderboard rows carry no region.
-// UNCONFIRMED: profile links use userId (rows have no gamerId); same assumption as
-// features/profile/api.ts, which loads GET /gamers/:userId.
+// Under the gamer tag: primary game, and region when the gamer has one.
+// `gamerId` is the userId (Fabiola), so profile links go to GET /gamers/:userId, the same
+// assumption as features/profile/api.ts (UNCONFIRMED with Rabasa that the route accepts it).
 
 const DESKTOP_ORDER = [1, 0, 2];
 
@@ -27,7 +27,7 @@ const BORDER: Record<number, string> = {
   3: "border-rank-bronze/35",
 };
 
-export function DesktopPodium({ entries }: { entries: LeaderboardRow[] }) {
+export function DesktopPodium({ entries }: { entries: LeaderboardEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <section aria-label="Top three" className="mt-2 grid grid-cols-[1fr_1.15fr_1fr] items-end gap-5">
@@ -37,7 +37,7 @@ export function DesktopPodium({ entries }: { entries: LeaderboardRow[] }) {
         const first = entry.rank === 1;
         return (
           <article
-            key={entry.userId}
+            key={entry.gamerId}
             className={cn(
               "relative flex flex-col items-center gap-3 rounded-xl border bg-surface px-5 text-center shadow-card transition-transform duration-200 ease-[ease] hover:-translate-y-1",
               BORDER[entry.rank] ?? "border-border",
@@ -57,7 +57,7 @@ export function DesktopPodium({ entries }: { entries: LeaderboardRow[] }) {
             <div>
               <p className={cn("font-extrabold", first ? "text-18 text-white" : "text-16")}>{entry.gamerTag}</p>
               <p className={cn("text-11", first ? "text-fg-secondary" : "text-fg-muted")}>
-                {gameName(entry.game)}
+                {[entry.primaryGame, entry.region].filter(Boolean).join(" • ")}
               </p>
             </div>
             <p
@@ -70,7 +70,7 @@ export function DesktopPodium({ entries }: { entries: LeaderboardRow[] }) {
             </p>
             <span className="text-10 font-semibold tracking-[0.5px] text-fg-muted uppercase">{SCORE_LABEL}</span>
             <ButtonLink
-              to={gamerProfilePath(entry.userId)}
+              to={gamerProfilePath(entry.gamerId)}
               variant={first ? "primary" : "secondary"}
               size="sm"
               aria-label={`View ${entry.gamerTag}'s profile`}
@@ -85,7 +85,7 @@ export function DesktopPodium({ entries }: { entries: LeaderboardRow[] }) {
 }
 
 /** 10M .mobile-podium-row: compact three-up cards, #1 in the middle. */
-export function MobilePodium({ entries }: { entries: LeaderboardRow[] }) {
+export function MobilePodium({ entries }: { entries: LeaderboardEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <section aria-label="Top three" className="grid grid-cols-3 gap-2">
@@ -95,7 +95,7 @@ export function MobilePodium({ entries }: { entries: LeaderboardRow[] }) {
         const first = entry.rank === 1;
         return (
           <article
-            key={entry.userId}
+            key={entry.gamerId}
             className={cn(
               "flex min-w-0 flex-col items-center gap-1 rounded-md border px-1.5 py-2.5 text-center",
               first ? "border-rank-gold bg-rank-gold/14" : "border-border bg-surface",

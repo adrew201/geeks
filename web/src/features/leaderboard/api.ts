@@ -4,21 +4,37 @@ import type { LeaderboardResponse } from "../../types/api.ts";
 
 export const LEADERBOARD_PATH = "/api/v1/leaderboard";
 
-// GET /api/v1/leaderboard?game=<slug> (Fabiola). The JWT is sent when signed in so the
-// response can include the caller's own position (`me`).
-export function fetchLeaderboard(game: GameSlug, signal?: AbortSignal): Promise<LeaderboardResponse> {
-  return api.get<LeaderboardResponse>(LEADERBOARD_PATH, { query: { game }, signal });
+/** A game slug, or null for the overall board. */
+export type GameFilter = GameSlug | null;
+
+// GET /api/v1/leaderboard (Fabiola). Public route, so no JWT is sent. The API matches `game`
+// against the stored display name ("Valorant"), not the app's slug; null leaves it out.
+export function fetchLeaderboard(game: GameFilter, signal?: AbortSignal): Promise<LeaderboardResponse> {
+  return api.get<LeaderboardResponse>(LEADERBOARD_PATH, {
+    query: game ? { game: GAMES[game].name } : undefined,
+    signal,
+    auth: false,
+  });
 }
 
 /**
- * The 10D game pills, built from config/games.ts (UNCONFIRMED list, see there).
- * 10D's "All Games" pill is hidden: the contract is one board per game slug.
+ * The 10D game pills: "All Games" (the overall board) plus config/games.ts (UNCONFIRMED list,
+ * see there).
  */
-export const GAME_FILTERS: Array<{ value: GameSlug; label: string; short?: string }> = GAME_SLUGS.map(
-  (slug) => {
+export const GAME_FILTERS: Array<{ value: GameFilter; label: string; short?: string }> = [
+  { value: null, label: "All Games" },
+  ...GAME_SLUGS.map((slug) => {
     const game: { name: string; short?: string } = GAMES[slug];
     return { value: slug, label: game.name, short: game.short };
-  },
-);
+  }),
+];
 
-export const DEFAULT_GAME: GameSlug = GAME_SLUGS[0] ?? "valorant";
+export const DEFAULT_GAME: GameFilter = null;
+
+/** Pill and heading label for a filter. */
+export function gameFilterLabel(game: GameFilter): string {
+  return game ? GAMES[game].name : "All Games";
+}
+
+/** Most entries the API returns per board. */
+export const LEADERBOARD_SIZE = 50;

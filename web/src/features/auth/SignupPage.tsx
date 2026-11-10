@@ -19,6 +19,7 @@ import {
   PASSWORD_RULE,
   TERMS_REQUIRED,
   hasErrors,
+  validateDisplayName,
   validateEmail,
   validateNewPassword,
   type FieldErrors,
@@ -32,11 +33,10 @@ import {
 //   C Reg Success    → step "success"
 // (D Login is LoginPage; E Forgot Password / F Reset Sent are hidden: no endpoint.)
 //
-// Hidden: 02D "Full Name" field. SignupRequest is { email, password, role } (README §14),
-// so a name has nowhere to go. No date of birth or age is collected.
+// 02D "Full Name" is the API's required `displayName`. No date of birth or age is collected.
 
 type Step = "role" | "details" | "submitting" | "success";
-type SignupField = "email" | "password" | "terms";
+type SignupField = "displayName" | "email" | "password" | "terms";
 
 export default function SignupPage() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
@@ -45,6 +45,7 @@ export default function SignupPage() {
 
   const [step, setStep] = useState<Step>("role");
   const [role, setRole] = useState<Role>(ROLE.GAMER);
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [terms, setTerms] = useState(false);
@@ -62,6 +63,7 @@ export default function SignupPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const nextErrors: FieldErrors<SignupField> = {
+      displayName: validateDisplayName(displayName) ?? undefined,
       email: validateEmail(email) ?? undefined,
       password: validateNewPassword(password) ?? undefined,
       terms: terms ? undefined : TERMS_REQUIRED,
@@ -76,7 +78,7 @@ export default function SignupPage() {
     const cleanEmail = email.trim();
     setStep("submitting");
     try {
-      const token = await signup(cleanEmail, password, role);
+      const token = await signup(cleanEmail, password, role, displayName.trim());
       const session = setToken(token);
       if (!session) {
         throw new Error("Your account was created, but we couldn't start a session. Please log in.");
@@ -165,6 +167,19 @@ export default function SignupPage() {
       {serverError && <FormAlert title="Account creation failed" message={serverError} />}
 
       <AuthCardBody>
+        <Field label="Full Name" error={errors.displayName} required>
+          <Input
+            name="name"
+            autoComplete="name"
+            placeholder="Alex Mwangi"
+            maxLength={60}
+            value={displayName}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              clearError("displayName");
+            }}
+          />
+        </Field>
         <Field label="Email Address" error={errors.email} required>
           <Input
             type="email"

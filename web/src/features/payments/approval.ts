@@ -51,6 +51,8 @@ export interface CheckoutContext {
   recipientName?: string;
   /** In-app path for "Back to …" after the payment. */
   returnPath?: string;
+  /** Label for the returnPath button. Default: "Back to <recipient>'s Gamer ID". */
+  returnLabel?: string;
   /** In-app path that restarts the payment (failed / cancelled / expired). */
   retryPath?: string;
 }
@@ -76,6 +78,7 @@ export function loadCheckoutContext(orderId: string): CheckoutContext | null {
       ...(context as CheckoutContext),
       returnPath: inAppPath(context.returnPath),
       retryPath: inAppPath(context.retryPath),
+      returnLabel: typeof context.returnLabel === "string" ? context.returnLabel : undefined,
     };
   } catch {
     return null;

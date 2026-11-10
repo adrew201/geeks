@@ -4,7 +4,8 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Modal } from "../../components/ui/Modal.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { formatMoney } from "../../lib/format-money.ts";
-import type { Cents } from "../../types/api.ts";
+import { ApiError } from "../../lib/api-client.ts";
+import { API_ERROR_CODE, type Cents } from "../../types/api.ts";
 import { classifyCheckoutError, isAbort, type PaymentApproval } from "./api.ts";
 import { saveCheckoutContext, type CheckoutContext } from "./approval.ts";
 import { PayPalApproval } from "./PayPalApproval.tsx";
@@ -28,7 +29,8 @@ type Phase =
   | { kind: "form" }
   | { kind: "creating" }
   | { kind: "redirecting"; approval: PaymentApproval }
-  | { kind: "failed"; message: string }
+  /** `invalid`: the API rejected the details (400), so retrying the same request can't help. */
+  | { kind: "failed"; message: string; invalid?: boolean }
   | { kind: "ineligible" };
 
 export interface SummaryLine {
@@ -56,6 +58,8 @@ export interface PaymentModalProps {
   onUnauthenticated: () => void;
   /** Shown for 403 NOT_VERIFIED_ADULT. */
   ineligibleMessage: string;
+  /** Title for 403 NOT_VERIFIED_ADULT. Default: "Can't receive payments yet" (donation recipient). */
+  ineligibleTitle?: string;
 }
 
 export function PaymentModal(props: PaymentModalProps) {
@@ -75,6 +79,7 @@ function OpenPaymentModal({
   checkout,
   onUnauthenticated,
   ineligibleMessage,
+  ineligibleTitle = "Can't receive payments yet",
 }: PaymentModalProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "form" });
   const controllerRef = useRef<AbortController | null>(null);
@@ -103,10 +108,13 @@ function OpenPaymentModal({
         setPhase({ kind: "ineligible" });
         return;
       }
-      setPhase({
-        kind: "failed",
-        message: "We couldn't start a PayPal checkout. Check your connection and try again.",
-      });
+      // A 400 explains itself (e.g. a bounty deadline past the backend's cap): show it.
+      const validation = error instanceof ApiError && error.code === API_ERROR_CODE.VALIDATION_ERROR;
+      setPhase(
+        validation
+          ? { kind: "failed", message: error.message, invalid: true }
+          : { kind: "failed", message: "We couldn't start a PayPal checkout. Check your connection and try again." },
+      );
     }
   }
 
@@ -156,6 +164,7 @@ function OpenPaymentModal({
           })
         }
         ineligibleMessage={ineligibleMessage}
+        ineligibleTitle={ineligibleTitle}
       >
         {children}
       </PhaseBody>
@@ -172,10 +181,22 @@ interface PhaseBodyProps {
   onClose: () => void;
   onUnsafeUrl: () => void;
   ineligibleMessage: string;
+  ineligibleTitle: string;
   children: ReactNode;
 }
 
-function PhaseBody({ phase, total, lines, onSubmit, onBack, onClose, onUnsafeUrl, ineligibleMessage, children }: PhaseBodyProps) {
+function PhaseBody({
+  phase,
+  total,
+  lines,
+  onSubmit,
+  onBack,
+  onClose,
+  onUnsafeUrl,
+  ineligibleMessage,
+  ineligibleTitle,
+  children,
+}: PhaseBodyProps) {
   switch (phase.kind) {
     case "creating":
       return (
@@ -197,15 +218,20 @@ function PhaseBody({ phase, total, lines, onSubmit, onBack, onClose, onUnsafeUrl
       return (
         <StatusPanel
           tone="danger"
-          title="Order creation failed"
+          title={phase.invalid ? "Check the details" : "Order creation failed"}
           description={phase.message}
           actions={
-            <>
-              <Button variant="secondary" onClick={onBack}>
-                Back
-              </Button>
-              <Button onClick={onSubmit}>Try again</Button>
-            </>
+            phase.invalid ? (
+              // Closing returns to the page's form, where the details can be fixed.
+              <Button onClick={onClose}>Edit details</Button>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={onBack}>
+                  Back
+                </Button>
+                <Button onClick={onSubmit}>Try again</Button>
+              </>
+            )
           }
         />
       );
@@ -214,7 +240,7 @@ function PhaseBody({ phase, total, lines, onSubmit, onBack, onClose, onUnsafeUrl
         <StatusPanel
           tone="warning"
           icon={<UserX />}
-          title="Can't receive payments yet"
+          title={ineligibleTitle}
           description={ineligibleMessage}
           actions={
             <Button variant="secondary" onClick={onClose}>
