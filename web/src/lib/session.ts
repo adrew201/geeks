@@ -1,8 +1,8 @@
 // The only module that stores or reads the JWT.
 //
 // - Storage: localStorage (fine for the hackathon demo; swap for a cookie later).
-// - Who is signed in comes from the token payload (README §18: userId, role, tier), mapped
-//   through lib/role-adapter.ts. There is no /me endpoint in the README.
+// - Who is signed in comes from the token payload (API JWT: sub (user id), role, tier), mapped
+//   through lib/role-adapter.ts. The API also has GET /auth/me, unused for now.
 // - An expired, malformed or unsupported-role token counts as logged out: it is removed
 //   and listeners are told. A timer also logs out the moment `exp` passes.
 // - The payload is decoded for UI decisions only; the API still enforces every guard.
@@ -58,10 +58,12 @@ function decodePayload(token: string): unknown {
 
 function isRawPayload(value: unknown): value is RawJwtPayload {
   if (typeof value !== "object" || value === null) return false;
-  const { userId, role, exp } = value as Record<string, unknown>;
+  const { sub, userId, role, exp } = value as Record<string, unknown>;
+  // The API signs the user id as the standard `sub` claim; `userId` is still accepted.
+  const id = sub ?? userId;
   return (
-    typeof userId === "string" &&
-    userId !== "" &&
+    typeof id === "string" &&
+    id !== "" &&
     typeof role === "string" &&
     (exp === undefined || typeof exp === "number")
   );
@@ -74,7 +76,7 @@ export function parseToken(token: string): Session | null {
   const appRole = fromApiRole(payload.role, payload.tier);
   if (!appRole) return null;
   return {
-    userId: payload.userId,
+    userId: payload.sub ?? payload.userId ?? "",
     ...appRole,
     expiresAt: payload.exp === undefined ? null : payload.exp * 1000,
   };
