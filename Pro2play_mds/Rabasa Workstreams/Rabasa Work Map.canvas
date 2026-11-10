@@ -1,0 +1,41 @@
+{
+  "nodes": [
+    {"id":"title","type":"text","text":"# Rabasa work map\nArrows = \"must exist before\". Red = blocks teammates. Triage: [[Rabasa Workstreams Index]]","x":-60,"y":-420,"width":520,"height":120},
+    {"id":"schema","type":"file","file":"Rabasa Workstreams/Schema Reconciliation.md","x":-600,"y":-220,"width":300,"height":120,"color":"1"},
+    {"id":"skeleton","type":"file","file":"Rabasa Workstreams/Platform Skeleton & Config.md","x":-200,"y":-220,"width":300,"height":120,"color":"1"},
+    {"id":"render","type":"file","file":"Rabasa Workstreams/Render Deployment Runbook.md","x":200,"y":-220,"width":300,"height":120},
+    {"id":"ci","type":"file","file":"Rabasa Workstreams/CI & Repo Hygiene.md","x":600,"y":-220,"width":300,"height":120},
+    {"id":"auth","type":"file","file":"Rabasa Workstreams/Auth, Roles & Tiers.md","x":-600,"y":0,"width":300,"height":120,"color":"1"},
+    {"id":"payments","type":"file","file":"Rabasa Workstreams/Payments Service (PayPal).md","x":-200,"y":0,"width":300,"height":120,"color":"1"},
+    {"id":"webhooks","type":"file","file":"Rabasa Workstreams/Webhook Handlers.md","x":200,"y":0,"width":300,"height":120},
+    {"id":"ledger","type":"file","file":"Rabasa Workstreams/Wallet Ledger & Payouts.md","x":200,"y":200,"width":300,"height":120},
+    {"id":"subs","type":"file","file":"Rabasa Workstreams/Subscriptions.md","x":-200,"y":200,"width":300,"height":120},
+    {"id":"profiles","type":"file","file":"Rabasa Workstreams/Profiles & Dashboard API.md","x":-600,"y":200,"width":300,"height":120},
+    {"id":"communities","type":"file","file":"Rabasa Workstreams/Communities.md","x":-600,"y":400,"width":300,"height":120},
+    {"id":"postman","type":"file","file":"Rabasa Workstreams/Postman Collection.md","x":600,"y":200,"width":300,"height":120},
+    {"id":"freeze","type":"file","file":"Rabasa Workstreams/Freeze, Demo Video & Submission.md","x":200,"y":420,"width":300,"height":120,"color":"4"},
+    {"id":"obonyo","type":"file","file":"Team/Obonyo.md","x":-200,"y":-420,"width":220,"height":80,"color":"5"},
+    {"id":"fabiola","type":"file","file":"Team/Fabiola.md","x":-860,"y":-220,"width":220,"height":80,"color":"5"},
+    {"id":"gicharu","type":"file","file":"Team/Gicharu.md","x":600,"y":0,"width":220,"height":80,"color":"5"},
+    {"id":"nigel","type":"file","file":"Team/Nigel.md","x":600,"y":420,"width":220,"height":80,"color":"5"},
+    {"id":"decisions","type":"file","file":"Rabasa Workstreams/Open Decisions.md","x":-860,"y":0,"width":220,"height":80,"color":"3"}
+  ],
+  "edges": [
+    {"id":"e1","fromNode":"schema","fromSide":"bottom","toNode":"auth","toSide":"top"},
+    {"id":"e2","fromNode":"skeleton","fromSide":"bottom","toNode":"payments","toSide":"top"},
+    {"id":"e3","fromNode":"skeleton","fromSide":"right","toNode":"render","toSide":"left","label":"deploy early"},
+    {"id":"e4","fromNode":"payments","fromSide":"right","toNode":"webhooks","toSide":"left"},
+    {"id":"e5","fromNode":"webhooks","fromSide":"bottom","toNode":"ledger","toSide":"top"},
+    {"id":"e6","fromNode":"payments","fromSide":"bottom","toNode":"subs","toSide":"top"},
+    {"id":"e7","fromNode":"auth","fromSide":"bottom","toNode":"profiles","toSide":"top"},
+    {"id":"e8","fromNode":"profiles","fromSide":"bottom","toNode":"communities","toSide":"top"},
+    {"id":"e9","fromNode":"ledger","fromSide":"bottom","toNode":"freeze","toSide":"top"},
+    {"id":"e10","fromNode":"render","fromSide":"bottom","toNode":"webhooks","toSide":"top","label":"webhook URL"},
+    {"id":"e11","fromNode":"payments","fromSide":"top","toNode":"obonyo","toSide":"bottom","label":"authorize / capture / void / payout","color":"1"},
+    {"id":"e12","fromNode":"schema","fromSide":"left","toNode":"fabiola","toSide":"right","label":"seed needs migration","color":"1"},
+    {"id":"e13","fromNode":"gicharu","fromSide":"left","toNode":"webhooks","toSide":"right","label":"verify first"},
+    {"id":"e14","fromNode":"postman","fromSide":"bottom","toNode":"nigel","toSide":"top","label":"mocks"},
+    {"id":"e15","fromNode":"ci","fromSide":"bottom","toNode":"postman","toSide":"top"},
+    {"id":"e16","fromNode":"decisions","fromSide":"top","toNode":"schema","toSide":"bottom"}
+  ]
+}

@@ -1050,7 +1050,9 @@ Fabiola signs off each item **on the deployed Render URL** before the **9 pm fre
 
 ### Related docs (in the project folder)
 
-- *Play2Pro Implementation Plan (7–11 Nov)*: schedule, owners, daily tasks
-- *Play2Pro: Turning Casual Gamers into Professionals*: product spec
-- *Play2Pro Pitch*: submission answers (note: still mentions unlock fees, which are out of scope)
-- *Play2Pro Architecture & Tech Stack*: sponsor tool mapping
+- [[Play2Pro Implementation Plan (7–11 Nov)]]: schedule, owners, daily tasks
+- [[Play2Pro Turning Casual Gamers into Professionals]]: product spec
+- *Play2Pro Pitch*: submission answers (note: still mentions unlock fees, which are out of scope; not in this vault)
+- [[play2pro_architecture_tech_stack]]: sponsor tool mapping
+- [[Database]]: ERD and domain overview
+- [[Team Members]] · [[Rabasa Workstreams Index]] · [[Wireframes Index]] · [[Home]]

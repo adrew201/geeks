@@ -34,3 +34,9 @@ feat(api): add OAuth callback handler [#00000000-0000-0000-0000-000000000000]
 fix(ui): show repo setup errors
 docs: update onboarding notes
 ```
+
+## Related
+
+- Enforced in the repo by `commitlint.config.js` (owner [[Rabasa]], see [[CI & Repo Hygiene]])
+- Repo `docs/instructions.md` section 5 lists the allowed scopes (`auth`, `payments`, `webhooks`, `profiles`, `communities`, ...)
+- [[Home]] · [[Team Members]]

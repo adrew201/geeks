@@ -1,0 +1,35 @@
+filters:
+  and:
+    - file.inFolder("Rabasa Workstreams")
+    - 'type == "workstream"'
+properties:
+  note.priority:
+    displayName: Priority
+  note.day:
+    displayName: Plan day
+  note.status:
+    displayName: Status
+views:
+  - type: table
+    name: By priority
+    order:
+      - file.name
+      - priority
+      - status
+      - day
+    sort:
+      - property: priority
+        direction: ASC
+  - type: table
+    name: Open only
+    filters:
+      and:
+        - 'status != "done"'
+    order:
+      - file.name
+      - priority
+      - status
+      - day
+    sort:
+      - property: priority
+        direction: ASC

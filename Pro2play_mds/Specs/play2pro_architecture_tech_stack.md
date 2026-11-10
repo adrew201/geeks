@@ -64,3 +64,6 @@ The following table details the specific sponsor tools selected for **Play2Pro**
 1. **Focused Integration:** Unnecessary tools (e.g., Bryntum or Channel3) have been excluded to maximize team velocity and avoid scope creep during the sprint.
 2. **Prize Alignment:** Integrating PayPal, AG Grid, and Render maximizes eligibility across both the main prize pool ($60,000+) and individual partner bonus categories ($5,000 AG Grid prize + $1,000 Render credits).
 3. **Clear Boundary:** Nigel works on the React frontend and AG Grid components, while you lead the Node.js/Fastify API, Prisma data models, Redis queues, and PayPal webhook validation.
+
+---
+Related: [[Home]] · [[Database]] · [[Play2Pro Implementation Plan (7–11 Nov)]] · Backend owner: [[Rabasa]] → [[Rabasa Workstreams Index]] · Frontend: [[Nigel]] · Deploy: [[Render Deployment Runbook]] · ⚠ Coach unlock references are out of scope (see [[Open Decisions]] #15)

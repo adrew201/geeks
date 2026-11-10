@@ -1,6 +1,6 @@
 
 ## tech stack 
-[[play2pro_architecture_tech_stack]]]
+[[play2pro_architecture_tech_stack]] · [[Home]] · [[Play2Pro Implementation Plan (7–11 Nov)]] · [[Database]]
 
 # Play2Pro: Turning Casual Gamers into Professionals
 
@@ -353,8 +353,8 @@ Escrow limits and tax details to be confirmed with PayPal's documentation and a 
 
 | Member | Role | Owns |
 | --- | --- | --- |
-| Obonyo | Product Lead & AI Engineer | Scope; AI agent (clip analysis, summaries, matching, verification); database schema with Rabasa |
-| Fabiola | Project Manager, QA & Submission | Timeline; pitch doc and submission; Elo and rad score logic; end-to-end QA |
-| Gicharu | Payments Security & Integration | PayPal security, webhook verification, escrow, KYC and age checks; pen testing |
-| Rabasa | Backend, DevOps & Media | Backend APIs incl. ad and community services; PayPal code with Gicharu; deployment; demo video |
-| Nigel | UI/UX Lead & User Research | Swipe feed, Gamer ID, dashboards, push-to-pay prompt; gamer interviews; usability tests |
+| [[Obonyo]] | Product Lead & AI Engineer | Scope; AI agent (clip analysis, summaries, matching, verification); database schema with Rabasa |
+| [[Fabiola]] | Project Manager, QA & Submission | Timeline; pitch doc and submission; Elo and rad score logic; end-to-end QA |
+| [[Gicharu]] | Payments Security & Integration | PayPal security, webhook verification, escrow, KYC and age checks; pen testing |
+| [[Rabasa]] | Backend, DevOps & Media | Backend APIs incl. ad and community services; PayPal code with Gicharu; deployment; demo video |
+| [[Nigel]] | UI/UX Lead & User Research | Swipe feed, Gamer ID, dashboards, push-to-pay prompt; gamer interviews; usability tests |
