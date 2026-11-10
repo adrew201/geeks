@@ -49,19 +49,24 @@ export function PublicHeader() {
           </ul>
         </nav>
 
-        <div className="flex items-center gap-2 lg:gap-3">
-          <ButtonLink to={ROUTES.login} variant="ghost" className="hidden lg:inline-flex">
+        {/* Responsive display classes live on wrappers, never on ButtonLink: its base class
+            sets inline-flex and cn() has no tailwind-merge, so `hidden` on the button itself
+            loses and every variant renders (the 390px overflow bug). */}
+        <div className="hidden items-center gap-3 lg:flex">
+          <ButtonLink to={ROUTES.login} variant="ghost">
             Log In
           </ButtonLink>
-          <ButtonLink to={ROUTES.signup} size="sm" className="lg:hidden">
-            Get Started
-          </ButtonLink>
-          <ButtonLink to={ROUTES.signup} className="hidden lg:inline-flex">
+          <ButtonLink to={ROUTES.signup}>Get Started</ButtonLink>
+        </div>
+
+        {/* 01M: one "Get Started" + hamburger; Log In lives in the overlay. */}
+        <div className="flex shrink-0 items-center gap-2 lg:hidden">
+          <ButtonLink to={ROUTES.signup} size="sm">
             Get Started
           </ButtonLink>
           <button
             type="button"
-            className="flex cursor-pointer p-1 text-fg-muted hover:text-fg lg:hidden"
+            className="flex cursor-pointer p-1 text-fg-muted hover:text-fg"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
             aria-controls={menuId}
