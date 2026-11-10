@@ -9,10 +9,16 @@ import bounties from "./plugins/bounties/index.js";
 import ads from "./plugins/ads/index.js";
 import coach from "./plugins/coach/index.js";
 import leaderboard from "./plugins/leaderboard/index.js";
+import { getHealth } from "./lib/health.js";
+import { setupCore } from "./lib/core.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
-  app.get("/health", async () => ({ ok: true }));
+  setupCore(app);
+  app.get("/health", async (_req, reply) => {
+    const { statusCode, body } = await getHealth();
+    return reply.code(statusCode).send(body);
+  });
 
   app.register(auth, { prefix: "/auth" });
   for (const plugin of [payments, profiles, communities, webhooks, clips, bounties, ads, coach, leaderboard]) {

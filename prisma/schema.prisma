@@ -6,8 +6,7 @@
 // ============================================================================
 
 datasource db {
-  provider  = "postgresql"
-  
+  provider = "postgresql"
 }
 
 generator client {
@@ -18,12 +17,18 @@ generator client {
 // ENUMS
 // ----------------------------------------------------------------------------
 
-enum UserRole {
-  GAMER_FREE
-  GAMER_PAID
+// Role and tier are separate (plan section 5): a user's role never changes, but
+// their tier flips FREE <-> PAID when a PayPal subscription webhook arrives.
+enum Role {
+  GAMER
   COACH
   SPONSOR
   ADMIN
+}
+
+enum Tier {
+  FREE
+  PAID
 }
 
 enum SocialPlatform {
@@ -105,32 +110,40 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum SubscriptionPlan {
+  PAID_GAMER
+  COACH
+}
+
 enum SubscriptionStatus {
+  APPROVAL_PENDING // created at PayPal, user has not approved yet
   ACTIVE
   PAST_DUE
   CANCELLED
   SUSPENDED
+  EXPIRED
 }
 
-enum TransactionType {
-  DONATION_RECEIVED
-  DONATION_SENT
-  BOUNTY_ESCROW_HOLD
-  BOUNTY_PAYOUT
-  BOUNTY_COMMISSION
-  AD_REVENUE_SHARE
-  SUBSCRIPTION_PAYMENT
-  SPONSORSHIP_PAYMENT
-  WITHDRAWAL
-  REFUND
+// Kinds of wallet ledger rows. Amounts are signed integer cents.
+enum WalletEntryKind {
+  DONATION // + net of a captured donation
+  BOUNTY // + bounty reward after capture
+  AD_SHARE // + ad revenue share for paid gamers
+  FEE // - platform fee / commission
+  WITHDRAWAL // - requested payout
+  REVERSAL // + restores a failed withdrawal
 }
 
-enum TransactionStatus {
+enum PayoutStatus {
   PENDING
+  PAID
+  FAILED
+}
+
+enum DonationStatus {
+  PENDING // order created, payer has not approved/captured yet
   COMPLETED
   FAILED
-  REFUNDED
-  CANCELLED
 }
 
 enum ModerationTarget {
@@ -152,22 +165,23 @@ enum ModerationStatus {
 // ----------------------------------------------------------------------------
 
 model User {
-  id               String    @id @default(uuid()) @db.Uuid
-  email            String    @unique
-  username         String    @unique
-  passwordHash     String?
-  displayName      String
-  avatarUrl        String?
-  role             UserRole  @default(GAMER_FREE)
-  adultKycVerified Boolean   @default(false)
-  kycVerifiedAt    DateTime?
-  paypalPayerId    String?
-  paypalEmail      String?
-  bio              String?   @db.Text
-  country          String?
-  region           String?   @default("GLOBAL")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique // stored lowercase by the auth plugin
+  username        String?   @unique // optional: signup only needs email, password, displayName, role
+  passwordHash    String
+  displayName     String
+  avatarUrl       String?
+  role            Role      @default(GAMER)
+  tier            Tier      @default(FREE) // only ever set to PAID by a verified subscription webhook
+  isVerifiedAdult Boolean   @default(false) // required for withdraw, bounty create/entry, receiving donations
+  kycVerifiedAt   DateTime?
+  paypalPayerId   String?
+  paypalEmail     String? // payout receiver
+  bio             String?   @db.Text
+  country         String?
+  region          String?   @default("GLOBAL")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // 1-to-1 Profile
   profile GamerProfile?
@@ -185,19 +199,19 @@ model User {
   bountySubmissions BountySubmission[]
 
   // Coach Communities & Endorsements
-  ownedCommunities     Community[]       @relation("CoachCommunities")
+  ownedCommunities     Community[]        @relation("CoachCommunities")
   communityMemberships CommunityMember[]
   endorsementsGiven    CoachEndorsement[] @relation("CoachEndorser")
   endorsementsReceived CoachEndorsement[] @relation("GamerEndorsed")
 
   // Advertising & Sponsorships
-  sponsoredCampaigns   AdCampaign[]              @relation("SponsorCampaigns")
-  sponsorshipsAsSponsor PlayerSponsorshipDeal[]  @relation("SponsorDeals")
-  sponsorshipsAsGamer   PlayerSponsorshipDeal[]  @relation("GamerDeals")
-  adImpressionsReceived AdImpression[]           @relation("ClipCreatorRevenueShare")
+  sponsoredCampaigns    AdCampaign[]            @relation("SponsorCampaigns")
+  sponsorshipsAsSponsor PlayerSponsorshipDeal[] @relation("SponsorDeals")
+  sponsorshipsAsGamer   PlayerSponsorshipDeal[] @relation("GamerDeals")
+  adImpressionsReceived AdImpression[]          @relation("ClipCreatorRevenueShare")
 
   // Financial Wallet & Subscriptions
-  wallet            Wallet?
+  walletEntries     WalletEntry[]
   donationsSent     Donation[]     @relation("DonationsSent")
   donationsReceived Donation[]     @relation("DonationsReceived")
   subscriptions     Subscription[]
@@ -205,7 +219,7 @@ model User {
   // Moderation & Audit
   moderationReports ModerationLog[] @relation("ReporterUser")
 
-  @@index([role])
+  @@index([role, tier])
   @@index([region])
   @@map("users")
 }
@@ -231,28 +245,28 @@ model LinkedAccount {
 // ----------------------------------------------------------------------------
 
 model GamerProfile {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @unique @db.Uuid
-  gamerTag           String   @unique
-  primaryGame        String   @default("Valorant")
-  secondaryGames     String[] @default([])
-  roles              String[] @default([]) // e.g. ["Duelist", "Entry Fragger"]
-  currentElo         Float    @default(1200.0)
-  radScore           Float    @default(0.0)
-  aiQualityScore     Float    @default(0.0)
-  aiSkillSummary     String?  @db.Text
-  calendlyUrl        String?
-  whatsappNumber     String?
-  visibility         Boolean  @default(true)
-  totalBountiesWon   Int      @default(0)
-  totalEndorsements  Int      @default(0)
-  lastEloUpdate      DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  gamerTag          String   @unique
+  primaryGame       String   @default("Valorant")
+  secondaryGames    String[] @default([])
+  roles             String[] @default([]) // e.g. ["Duelist", "Entry Fragger"]
+  currentElo        Float    @default(1200.0)
+  radScore          Float    @default(0.0)
+  aiQualityScore    Float    @default(0.0)
+  aiSkillSummary    String?  @db.Text
+  calendlyUrl       String?
+  whatsappNumber    String?
+  visibility        Boolean  @default(true)
+  totalBountiesWon  Int      @default(0)
+  totalEndorsements Int      @default(0)
+  lastEloUpdate     DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  radScoreHistories  RadScoreHistory[]
-  achievements       Achievement[]
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  radScoreHistories RadScoreHistory[]
+  achievements      Achievement[]
 
   @@index([primaryGame, radScore(sort: Desc)])
   @@index([currentElo(sort: Desc)])
@@ -306,7 +320,7 @@ model Clip {
   durationSeconds      Int?
   aiAnalysisStatus     AnalysisStatus @default(PENDING)
   aiGameDetected       String?
-  aiKeyMoments         Json?          // Structured metadata from Claude Vision API
+  aiKeyMoments         Json? // Structured metadata from Claude Vision API
   aiTags               String[]       @default([])
   aiQualityScore       Float?         @default(0.0)
   viewCount            Int            @default(0)
@@ -330,15 +344,15 @@ model Clip {
 }
 
 model SwipeVote {
-  id            String   @id @default(uuid()) @db.Uuid
-  voterId       String   @db.Uuid
-  clipId        String   @db.Uuid
-  voteType      VoteType
-  voterWeight   Float    @default(1.0) // 1.0 for casual gamers; 2.5 for coaches / verified pros
-  previousElo   Float?
-  newElo        Float?
-  ipHash        String?
-  createdAt     DateTime @default(now())
+  id          String   @id @default(uuid()) @db.Uuid
+  voterId     String   @db.Uuid
+  clipId      String   @db.Uuid
+  voteType    VoteType
+  voterWeight Float    @default(1.0) // 1.0 for casual gamers; 2.5 for coaches / verified pros
+  previousElo Float?
+  newElo      Float?
+  ipHash      String?
+  createdAt   DateTime @default(now())
 
   voter User @relation(fields: [voterId], references: [id], onDelete: Cascade)
   clip  Clip @relation(fields: [clipId], references: [id], onDelete: Cascade)
@@ -371,12 +385,12 @@ model Bounty {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
-  creator      User               @relation("BountyCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  winner       User?              @relation("BountyWinner", fields: [winnerId], references: [id], onDelete: SetNull)
-  submissions  BountySubmission[]
-  transactions Transaction[]      @relation("BountyTransactions")
-  community    Community?         @relation(fields: [communityId], references: [id], onDelete: SetNull)
-  communityId  String?            @db.Uuid
+  creator       User               @relation("BountyCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  winner        User?              @relation("BountyWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  submissions   BountySubmission[]
+  walletEntries WalletEntry[]
+  community     Community?         @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  communityId   String?            @db.Uuid
 
   @@index([game, status, deadline])
   @@index([creatorId])
@@ -384,17 +398,17 @@ model Bounty {
 }
 
 model BountySubmission {
-  id                 String           @id @default(uuid()) @db.Uuid
-  bountyId           String           @db.Uuid
-  gamerId            String           @db.Uuid
-  clipId             String           @db.Uuid
-  aiVerificationStatus AnalysisStatus @default(PENDING)
-  aiConfidenceScore  Float?
-  aiReviewNotes      String?          @db.Text
-  creatorConfirmed   Boolean          @default(false)
-  status             SubmissionStatus @default(SUBMITTED)
-  submittedAt        DateTime         @default(now())
-  reviewedAt         DateTime?
+  id                   String           @id @default(uuid()) @db.Uuid
+  bountyId             String           @db.Uuid
+  gamerId              String           @db.Uuid
+  clipId               String           @db.Uuid
+  aiVerificationStatus AnalysisStatus   @default(PENDING)
+  aiConfidenceScore    Float?
+  aiReviewNotes        String?          @db.Text
+  creatorConfirmed     Boolean          @default(false)
+  status               SubmissionStatus @default(SUBMITTED)
+  submittedAt          DateTime         @default(now())
+  reviewedAt           DateTime?
 
   bounty Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   gamer  User   @relation(fields: [gamerId], references: [id], onDelete: Cascade)
@@ -437,6 +451,7 @@ model CommunityMember {
   gamerId     String                @db.Uuid
   status      CommunityMemberStatus @default(PENDING)
   joinedAt    DateTime?
+  decidedAt   DateTime? // when the coach approved or declined the request
   createdAt   DateTime              @default(now())
 
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
@@ -468,26 +483,26 @@ model CoachEndorsement {
 // ----------------------------------------------------------------------------
 
 model AdCampaign {
-  id                  String         @id @default(uuid()) @db.Uuid
-  sponsorId           String         @db.Uuid
-  campaignName        String
-  format              AdFormat       @default(FEED_AD)
-  budgetTotal         Decimal        @db.Decimal(12, 2)
-  budgetRemaining     Decimal        @db.Decimal(12, 2)
-  costPerThousandViews Decimal?      @db.Decimal(10, 2)
-  targetGame          String?
-  targetRegion        String?        @default("GLOBAL")
-  targetAgeBand       String?        // e.g. "18-24", "25-34"
-  creativeVideoUrl    String
-  clickThroughUrl     String?
-  impressionsCount    Int            @default(0)
-  clicksCount         Int            @default(0)
-  status              CampaignStatus @default(DRAFT)
-  paypalOrderId       String?        @unique
-  startDate           DateTime?
-  endDate             DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                   String         @id @default(uuid()) @db.Uuid
+  sponsorId            String         @db.Uuid
+  campaignName         String
+  format               AdFormat       @default(FEED_AD)
+  budgetTotal          Decimal        @db.Decimal(12, 2)
+  budgetRemaining      Decimal        @db.Decimal(12, 2)
+  costPerThousandViews Decimal?       @db.Decimal(10, 2)
+  targetGame           String?
+  targetRegion         String?        @default("GLOBAL")
+  targetAgeBand        String? // e.g. "18-24", "25-34"
+  creativeVideoUrl     String
+  clickThroughUrl      String?
+  impressionsCount     Int            @default(0)
+  clicksCount          Int            @default(0)
+  status               CampaignStatus @default(DRAFT)
+  paypalOrderId        String?        @unique
+  startDate            DateTime?
+  endDate              DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   sponsor     User           @relation("SponsorCampaigns", fields: [sponsorId], references: [id], onDelete: Cascade)
   impressions AdImpression[]
@@ -497,13 +512,13 @@ model AdCampaign {
 }
 
 model AdImpression {
-  id              String   @id @default(uuid()) @db.Uuid
-  campaignId      String   @db.Uuid
-  viewerId        String?  @db.Uuid
-  clipId          String?  @db.Uuid
-  gamerId         String?  @db.Uuid // Gamer receiving ad revenue share
-  revShareAmount  Decimal  @default(0.00) @db.Decimal(10, 4)
-  viewedAt        DateTime @default(now())
+  id             String   @id @default(uuid()) @db.Uuid
+  campaignId     String   @db.Uuid
+  viewerId       String?  @db.Uuid
+  clipId         String?  @db.Uuid
+  gamerId        String?  @db.Uuid // Gamer receiving ad revenue share
+  revShareAmount Decimal  @default(0.00) @db.Decimal(10, 4)
+  viewedAt       DateTime @default(now())
 
   campaign AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   clip     Clip?      @relation(fields: [clipId], references: [id], onDelete: SetNull)
@@ -515,16 +530,16 @@ model AdImpression {
 }
 
 model PlayerSponsorshipDeal {
-  id                 String   @id @default(uuid()) @db.Uuid
-  sponsorId          String   @db.Uuid
-  gamerId            String   @db.Uuid
-  dealTerms          String   @db.Text
-  monthlyFee         Decimal  @db.Decimal(12, 2)
-  platformFee        Decimal  @db.Decimal(12, 2)
-  status             String   @default("ACTIVE")
-  startDate          DateTime @default(now())
-  endDate            DateTime?
-  createdAt          DateTime @default(now())
+  id          String    @id @default(uuid()) @db.Uuid
+  sponsorId   String    @db.Uuid
+  gamerId     String    @db.Uuid
+  dealTerms   String    @db.Text
+  monthlyFee  Decimal   @db.Decimal(12, 2)
+  platformFee Decimal   @db.Decimal(12, 2)
+  status      String    @default("ACTIVE")
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
 
   sponsor User @relation("SponsorDeals", fields: [sponsorId], references: [id], onDelete: Cascade)
   gamer   User @relation("GamerDeals", fields: [gamerId], references: [id], onDelete: Cascade)
@@ -538,79 +553,72 @@ model PlayerSponsorshipDeal {
 // FINANCIAL LEDGER, WALLETS & PAYPAL ENGINE
 // ----------------------------------------------------------------------------
 
-model Wallet {
-  id             String        @id @default(uuid()) @db.Uuid
-  userId         String        @unique @db.Uuid
-  balance        Decimal       @default(0.00) @db.Decimal(12, 2)
-  pendingBalance Decimal       @default(0.00) @db.Decimal(12, 2)
-  currency       String        @default("USD")
-  totalEarned    Decimal       @default(0.00) @db.Decimal(12, 2)
-  totalWithdrawn Decimal       @default(0.00) @db.Decimal(12, 2)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+// Append-only wallet ledger (README "Money conventions"):
+//  - amountCents is a SIGNED integer: credits positive, debits negative
+//  - balance = SUM(amountCents) for a user; there is deliberately no balance column
+//  - rows are never updated or deleted (only payoutStatus on a WITHDRAWAL changes);
+//    corrections are new REVERSAL rows
+//  - (paypalRef, kind) is unique so a replayed webhook cannot credit twice;
+//    NULL paypalRef rows (e.g. ad share) are not constrained
+model WalletEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  userId        String          @db.Uuid
+  amountCents   Int
+  currency      String          @default("USD")
+  kind          WalletEntryKind
+  paypalRef     String? // capture ID, payout item ID, etc.
+  donationId    String?         @db.Uuid
+  bountyId      String?         @db.Uuid
+  payoutStatus  PayoutStatus? // only set on WITHDRAWAL rows
+  payoutBatchId String?
+  payoutItemId  String?
+  note          String?
+  createdAt     DateTime        @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  donation Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  bounty   Bounty?   @relation(fields: [bountyId], references: [id], onDelete: SetNull)
 
-  @@map("wallets")
-}
-
-model Transaction {
-  id                    String            @id @default(uuid()) @db.Uuid
-  walletId              String            @db.Uuid
-  type                  TransactionType
-  amount                Decimal           @db.Decimal(12, 2)
-  feeAmount             Decimal           @default(0.00) @db.Decimal(12, 2)
-  netAmount             Decimal           @db.Decimal(12, 2)
-  currency              String            @default("USD")
-  status                TransactionStatus @default(PENDING)
-  paypalTransactionId   String?           @unique
-  paypalOrderId         String?
-  paypalPayoutBatchId   String?
-  paypalPayoutItemId    String?
-  description           String?
-  metadata              Json?
-  bountyId              String?           @db.Uuid
-  createdAt             DateTime          @default(now())
-
-  wallet Wallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  bounty Bounty? @relation("BountyTransactions", fields: [bountyId], references: [id], onDelete: SetNull)
-
-  @@index([walletId, createdAt])
-  @@index([paypalOrderId])
-  @@index([status])
-  @@map("transactions")
+  @@unique([paypalRef, kind])
+  @@index([userId, createdAt])
+  @@index([payoutItemId])
+  @@map("wallet_entries")
 }
 
 model Donation {
-  id               String   @id @default(uuid()) @db.Uuid
-  donorId          String?  @db.Uuid // Nullable for anonymous/guest push-to-pay
-  recipientGamerId String   @db.Uuid
-  clipId           String?  @db.Uuid
-  amount           Decimal  @db.Decimal(12, 2)
-  fee              Decimal  @default(0.00) @db.Decimal(12, 2)
-  netAmount        Decimal  @db.Decimal(12, 2)
-  currency         String   @default("USD")
-  paypalOrderId    String?  @unique
-  message          String?  @db.Text
-  createdAt        DateTime @default(now())
+  id               String         @id @default(uuid()) @db.Uuid
+  donorId          String?        @db.Uuid // Nullable for anonymous/guest push-to-pay
+  recipientGamerId String         @db.Uuid
+  clipId           String?        @db.Uuid
+  amountCents      Int
+  feeCents         Int            @default(0)
+  netCents         Int
+  currency         String         @default("USD")
+  status           DonationStatus @default(PENDING)
+  paypalOrderId    String?        @unique
+  paypalCaptureId  String?        @unique
+  message          String?        @db.Text
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
 
-  donor     User? @relation("DonationsSent", fields: [donorId], references: [id], onDelete: SetNull)
-  recipient User  @relation("DonationsReceived", fields: [recipientGamerId], references: [id], onDelete: Cascade)
-  clip      Clip? @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  donor         User?         @relation("DonationsSent", fields: [donorId], references: [id], onDelete: SetNull)
+  recipient     User          @relation("DonationsReceived", fields: [recipientGamerId], references: [id], onDelete: Cascade)
+  clip          Clip?         @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  walletEntries WalletEntry[]
 
   @@index([recipientGamerId, createdAt])
+  @@index([status])
   @@map("donations")
 }
 
 model Subscription {
   id                   String             @id @default(uuid()) @db.Uuid
   userId               String             @db.Uuid
-  planTier             UserRole           // GAMER_PAID or COACH
+  plan                 SubscriptionPlan
   paypalSubscriptionId String             @unique
-  status               SubscriptionStatus @default(ACTIVE)
-  currentPeriodStart   DateTime
-  currentPeriodEnd     DateTime
+  status               SubscriptionStatus @default(APPROVAL_PENDING)
+  currentPeriodStart   DateTime? // unknown until PayPal activates the subscription
+  currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -644,15 +652,15 @@ model ModerationLog {
 }
 
 model PaypalWebhookEvent {
-  id           String   @id @default(uuid()) @db.Uuid
-  eventId      String   @unique // PayPal webhook event id (e.g. WH-...)
-  eventType    String   // e.g. PAYMENT.CAPTURE.COMPLETED, CHECKOUT.ORDER.APPROVED
-  resourceType String   // e.g. capture, order, subscription
-  summary      String?
-  rawPayload   Json
-  status       String   @default("PROCESSED") // PROCESSED, FAILED, IGNORED
-  signatureValid Boolean @default(true)
-  receivedAt   DateTime @default(now())
+  id             String   @id @default(uuid()) @db.Uuid
+  eventId        String   @unique // PayPal webhook event id (e.g. WH-...)
+  eventType      String // e.g. PAYMENT.CAPTURE.COMPLETED, CHECKOUT.ORDER.APPROVED
+  resourceType   String // e.g. capture, order, subscription
+  summary        String?
+  rawPayload     Json
+  status         String   @default("PROCESSED") // PROCESSED, FAILED, IGNORED
+  signatureValid Boolean  @default(true)
+  receivedAt     DateTime @default(now())
 
   @@index([eventType, receivedAt])
   @@map("paypal_webhook_events")
