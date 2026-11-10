@@ -5,10 +5,12 @@ import { ApiError } from "../lib/api-error.ts";
 import {
   API_ERROR_CODE,
   ROLE,
+  TIER,
   type AuthResponse,
   type DonationResponse,
   type FeedPage,
   type GamerDashboard,
+  type LeaderboardResponse,
   type Role,
 } from "../types/api.ts";
 import {
@@ -64,10 +66,41 @@ route("POST", "/auth/signup", ({ body }): AuthResponse => {
   return { token: "mock.jwt.token", user: { ...mockUser, role } };
 });
 
-route("GET", "/api/v1/feed", (): FeedPage => {
-  const items: FeedPage["items"] = mockClips.map((clip) => {
+/**
+ * QA switch for states the happy-path fixtures never reach. Add `?mock=<scenario>` to the
+ * page URL, e.g. /feed?mock=vote-fail or /leaderboard?mock=empty. Mock mode only.
+ */
+type MockScenario = "empty" | "feed-fail" | "vote-fail" | "vote-404" | "leaderboard-fail";
+
+function scenario(): MockScenario | null {
+  if (typeof window === "undefined") return null;
+  return (new URLSearchParams(window.location.search).get("mock") as MockScenario | null) ?? null;
+}
+
+function serverError(): never {
+  throw new ApiError(500, API_ERROR_CODE.UNKNOWN_ERROR, "Mock server error.");
+}
+
+/** README §19 / .env.example: ADS_EVERY_N_CLIPS=5. Lowered so the demo reaches an ad quickly. */
+const MOCK_ADS_EVERY_N_CLIPS = 3;
+const MOCK_FEED_PAGE_SIZE = 3;
+
+route("GET", "/api/v1/feed", ({ query }): FeedPage => {
+  if (scenario() === "feed-fail") serverError();
+  if (scenario() === "empty") return { items: [], nextCursor: null };
+
+  // README §14: the feed excludes the caller's own clips.
+  const ownGamerIds = new Set(
+    mockGamers.filter((gamer) => gamer.userId === mockUser.id).map((gamer) => gamer.id),
+  );
+  const clips = mockClips.filter((clip) => !ownGamerIds.has(clip.ownerId));
+  const start = Number(query.get("cursor") ?? 0);
+  const page = clips.slice(start, start + MOCK_FEED_PAGE_SIZE);
+
+  const items: FeedPage["items"] = [];
+  page.forEach((clip, index) => {
     const owner = mockGamers.find((gamer) => gamer.id === clip.ownerId);
-    return {
+    items.push({
       kind: "clip",
       clip,
       owner: {
@@ -76,17 +109,39 @@ route("GET", "/api/v1/feed", (): FeedPage => {
         region: owner?.region ?? null,
         radScore: owner?.radScore ?? 0,
       },
-    };
+    });
+    const position = start + index + 1;
+    if (mockUser.tier === TIER.FREE && position % MOCK_ADS_EVERY_N_CLIPS === 0) {
+      items.push({ kind: "ad", ad: mockHouseAd });
+    }
   });
-  items.splice(2, 0, { kind: "ad", ad: mockHouseAd });
-  return { items, nextCursor: null };
+
+  const next = start + MOCK_FEED_PAGE_SIZE;
+  return { items, nextCursor: next < clips.length ? String(next) : null };
 });
 
-route("POST", "/api/v1/clips/:id/vote", () => undefined);
+/** Vote is unique on (clipId, voterId) (README §13). Tracks this tab's votes. */
+const mockVotes = new Set<string>();
 
-route("GET", "/api/v1/leaderboard", ({ query }) => {
+route("POST", "/api/v1/clips/:id/vote", ({ params }) => {
+  if (scenario() === "vote-fail") serverError();
+  if (scenario() === "vote-404") notFound("Clip not found.");
+  if (!mockClips.some((clip) => clip.id === params.id)) notFound("Clip not found.");
+  if (mockVotes.has(params.id)) {
+    // UNCONFIRMED: status and code for a repeat vote (see VoteResponse in types/api.ts).
+    throw new ApiError(409, API_ERROR_CODE.VALIDATION_ERROR, "You already voted on this clip.");
+  }
+  mockVotes.add(params.id);
+  return undefined;
+});
+
+route("GET", "/api/v1/leaderboard", ({ query }): LeaderboardResponse => {
+  if (scenario() === "leaderboard-fail") serverError();
+  if (scenario() === "empty") return [];
   const game = query.get("game");
-  return game ? mockLeaderboard.filter((entry) => entry.game === game) : mockLeaderboard;
+  const rows = game ? mockLeaderboard.filter((entry) => entry.game === game) : mockLeaderboard;
+  // Ranks are per game, so re-number after filtering.
+  return rows.map((entry, index) => ({ ...entry, rank: index + 1 }));
 });
 
 route("GET", "/api/v1/gamers/:id", ({ params }) => {

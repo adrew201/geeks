@@ -61,6 +61,26 @@ export const mockGamers: GamerProfile[] = [
     aiSummary: null,
     radScore: 9105,
   },
+  {
+    id: "gmr_ghostaim",
+    userId: "usr_gamer_4",
+    gamerTags: ["GhostAim"],
+    platforms: ["Mobile"],
+    games: ["Call of Duty Mobile"],
+    region: "Kenya",
+    aiSummary: null,
+    radScore: 8720,
+  },
+  {
+    id: "gmr_vortex",
+    userId: "usr_gamer_5",
+    gamerTags: ["Vortex"],
+    platforms: ["PC"],
+    games: ["Fortnite"],
+    region: "Ghana",
+    aiSummary: null,
+    radScore: 8540,
+  },
 ];
 
 export const mockClips: Clip[] = [
@@ -101,6 +121,30 @@ export const mockClips: Clip[] = [
     eloRating: 1500,
     status: CLIP_STATUS.PENDING,
   },
+  {
+    id: "clp_4",
+    ownerId: "gmr_ghostaim",
+    url: "https://example.com/clips/clp_4",
+    description: "Hardpoint hold with a 12-kill streak",
+    game: "Call of Duty Mobile",
+    tags: ["streak", "hardpoint"],
+    stats: { kills: 12 },
+    aiQualityScore: 71,
+    eloRating: 1480,
+    status: CLIP_STATUS.ANALYSED,
+  },
+  {
+    id: "clp_5",
+    ownerId: "gmr_vortex",
+    url: "https://example.com/clips/clp_5",
+    description: "Box fight edit sequence into a final-zone win",
+    game: "Fortnite",
+    tags: ["edit", "win"],
+    stats: null,
+    aiQualityScore: 66,
+    eloRating: 1520,
+    status: CLIP_STATUS.ANALYSED,
+  },
 ];
 
 export const mockHouseAd: HouseAd = {
@@ -116,6 +160,7 @@ export const mockLeaderboard: LeaderboardEntry[] = [...mockGamers]
   .map((gamer, index) => ({
     rank: index + 1,
     gamerId: gamer.id,
+    userId: gamer.userId,
     gamerTag: gamer.gamerTags[0] ?? gamer.id,
     game: gamer.games[0] ?? "",
     region: gamer.region,

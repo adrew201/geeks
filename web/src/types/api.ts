@@ -231,7 +231,10 @@ export interface CreateClipResponse {
   status: ClipStatus;
 }
 
-/** Assumed house-ad shape (README §19). */
+/**
+ * UNCONFIRMED house-ad shape. README §19 only says "a house ad (Play2Pro promo)";
+ * no fields are specified.
+ */
 export interface HouseAd {
   id: string;
   title: string;
@@ -240,9 +243,13 @@ export interface HouseAd {
   ctaUrl: string;
 }
 
-/** Assumed: README says the feed is paged with ads interleaved for FREE users. */
+/**
+ * UNCONFIRMED. README §14 only says GET /api/v1/feed?cursor= is "paged" with "ads interleaved
+ * for FREE". The `kind` discriminator, the `owner` block and the ad item are all assumed.
+ */
 export type FeedItem = { kind: "clip"; clip: Clip; owner: FeedOwner } | { kind: "ad"; ad: HouseAd };
 
+/** UNCONFIRMED: owner summary embedded in each feed clip (values exist on GamerProfile, README §13). */
 export interface FeedOwner {
   gamerId: string;
   gamerTag: string;
@@ -250,27 +257,46 @@ export interface FeedOwner {
   radScore: number;
 }
 
+/** UNCONFIRMED: page envelope. README §14 confirms only the `cursor` query param. */
 export interface FeedPage {
   items: FeedItem[];
   nextCursor: string | null;
 }
 
+/** README §14: POST /api/v1/clips/:id/vote body `{ "direction": "UP" | "DOWN" }`. */
 export interface VoteRequest {
   direction: VoteDirection;
 }
+
+/**
+ * UNCONFIRMED: README gives no response body for a vote, so the client ignores it.
+ * Vote is unique on (clipId, voterId) (README §13); the status code for a repeat vote is
+ * also unconfirmed. The client treats 409 as "already voted" (see features/feed/api.ts).
+ */
+export type VoteResponse = unknown;
 
 /* ------------------------------------------------------------------ */
 /* Leaderboard                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * UNCONFIRMED row shape for GET /api/v1/leaderboard?game= (README §14: "Gamers ranked by
+ * rad score"). Values come from GamerProfile (README §13); the row layout is assumed.
+ * README has no trend, period or region filter for the leaderboard.
+ */
 export interface LeaderboardEntry {
   rank: number;
   gamerId: string;
+  /** UNCONFIRMED: needed to find the signed-in user's row (JWT carries userId, not gamerId). */
+  userId: string;
   gamerTag: string;
   game: string;
   region: string | null;
   radScore: number;
 }
+
+/** UNCONFIRMED: assumed to be a bare array, not wrapped in an envelope. */
+export type LeaderboardResponse = LeaderboardEntry[];
 
 /* ------------------------------------------------------------------ */
 /* Payments (README §15)                                                */

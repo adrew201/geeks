@@ -20,7 +20,8 @@ export const ROUTES = {
   signup: "/signup",
   dashboard: "/dashboard",
   passport: "/passport",
-  arena: "/arena",
+  /** Arena (page 09). Served at /feed to match GET /api/v1/feed. */
+  arena: "/feed",
   leaderboard: "/leaderboard",
   wallet: "/wallet",
   bounties: "/bounties",
@@ -29,6 +30,11 @@ export const ROUTES = {
   privacy: "/privacy",
   terms: "/terms",
 } as const;
+
+/** Public Gamer ID (page 12, docs/ui-audit.md §9). The page isn't routed yet. */
+export function gamerProfilePath(gamerId: string): string {
+  return `/gamers/${encodeURIComponent(gamerId)}`;
+}
 
 export interface NavItem {
   label: string;
