@@ -12,3 +12,15 @@ export const TRUST_LABELS = {
 } as const;
 
 export type TrustLevel = keyof typeof TRUST_LABELS;
+
+/** Display names for ROLE and TIER values (types/api.ts). */
+export const ROLE_LABELS = {
+  GAMER: "Gamer",
+  COACH: "Coach",
+  SPONSOR: "Sponsor",
+} as const;
+
+export const TIER_LABELS = {
+  FREE: "Free tier",
+  PAID: "Paid tier",
+} as const;

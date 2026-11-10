@@ -82,9 +82,14 @@ export function navAudienceFor(role: Role): NavAudience {
   return "gamer";
 }
 
-/** Where each role lands after login. */
+/**
+ * Where each role lands after login or signup. The single source for this redirect.
+ * (02D sent every login to the coach dashboard and every signup to gamer onboarding.)
+ * Gamers go to the Arena until the dashboard (page 05) is built; then switch to
+ * ROUTES.dashboard here.
+ */
 export function homeRouteFor(role: Role): string {
-  return role === ROLE.GAMER ? ROUTES.dashboard : ROUTES.discover;
+  return role === ROLE.GAMER ? ROUTES.arena : ROUTES.discover;
 }
 
 export interface PublicLink {

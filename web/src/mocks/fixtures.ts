@@ -25,6 +25,28 @@ export const mockUser: User = {
   isVerifiedAdult: true,
 };
 
+/**
+ * Demo logins for mock mode. Any password works for these emails; other emails get 401.
+ * Signing up with one of them returns the "email already registered" error.
+ */
+export const mockAccounts: User[] = [
+  mockUser,
+  {
+    id: "usr_coach_1",
+    email: "coach@play2pro.test",
+    role: ROLE.COACH,
+    tier: TIER.FREE,
+    isVerifiedAdult: true,
+  },
+  {
+    id: "usr_sponsor_1",
+    email: "sponsor@play2pro.test",
+    role: ROLE.SPONSOR,
+    tier: TIER.FREE,
+    isVerifiedAdult: true,
+  },
+];
+
 export const mockGamers: GamerProfile[] = [
   {
     id: "gmr_shadowviper",

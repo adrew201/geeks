@@ -1,19 +1,27 @@
 import { NavLink } from "react-router";
+import { LogOut } from "lucide-react";
 import { cn } from "../../lib/cn.ts";
 import { Avatar } from "../ui/Avatar.tsx";
+import { Button } from "../ui/Button.tsx";
 import { BrandLogo } from "./BrandLogo.tsx";
 import type { NavItem } from "./nav-config.ts";
 
 // 09D .sidebar: 240px, header bg, right border, 24px 16px, brand block with bottom border,
 // nav items 10px 14px / 13px / 600 / radius-md; active = primary tint + primary text + border.
-// .user-profile-summary pinned to the bottom.
+// .user-profile-summary pinned to the bottom, with Log out under it (not in the prototypes).
 
 export interface SidebarUser {
   name: string;
   subtitle?: string;
 }
 
-export function AppSidebar({ items, user }: { items: NavItem[]; user?: SidebarUser }) {
+export interface AppSidebarProps {
+  items: NavItem[];
+  user?: SidebarUser;
+  onLogout?: () => void;
+}
+
+export function AppSidebar({ items, user, onLogout }: AppSidebarProps) {
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col justify-between border-r border-border bg-header px-4 py-6 lg:flex">
       <div>
@@ -44,13 +52,23 @@ export function AppSidebar({ items, user }: { items: NavItem[]; user?: SidebarUs
         </nav>
       </div>
 
-      {user && (
-        <div className="flex items-center gap-3 rounded-md border border-border bg-surface p-3.5">
-          <Avatar name={user.name} size="sm" />
-          <div className="min-w-0">
-            <p className="truncate text-13 font-bold">{user.name}</p>
-            {user.subtitle && <p className="truncate text-11 text-fg-muted">{user.subtitle}</p>}
-          </div>
+      {(user || onLogout) && (
+        <div className="flex flex-col gap-2">
+          {user && (
+            <div className="flex items-center gap-3 rounded-md border border-border bg-surface p-3.5">
+              <Avatar name={user.name} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-13 font-bold">{user.name}</p>
+                {user.subtitle && <p className="truncate text-11 text-fg-muted">{user.subtitle}</p>}
+              </div>
+            </div>
+          )}
+          {onLogout && (
+            <Button variant="ghost" fullWidth onClick={onLogout}>
+              <LogOut className="size-4" aria-hidden="true" />
+              Log out
+            </Button>
+          )}
         </div>
       )}
     </aside>

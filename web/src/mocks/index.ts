@@ -2,16 +2,19 @@
 // Unknown routes reject with NOT_FOUND so missing mocks are obvious.
 
 import { ApiError } from "../lib/api-error.ts";
+import { fromApiRole, toApiRole } from "../lib/role-adapter.ts";
+import { getSession } from "../lib/session.ts";
 import {
   API_ERROR_CODE,
-  ROLE,
   TIER,
   type AuthResponse,
   type DonationResponse,
   type FeedPage,
   type GamerDashboard,
   type LeaderboardResponse,
-  type Role,
+  type LoginRequest,
+  type SignupRequest,
+  type User,
 } from "../types/api.ts";
 import {
   mockBounties,
@@ -19,6 +22,7 @@ import {
   mockGamers,
   mockHouseAd,
   mockLeaderboard,
+  mockAccounts,
   mockUser,
   mockWalletEntries,
 } from "./fixtures.ts";
@@ -59,18 +63,19 @@ function notFound(message: string): never {
 
 route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
 
-route("POST", "/auth/login", (): AuthResponse => ({ token: "mock.jwt.token", user: mockUser }));
-
-route("POST", "/auth/signup", ({ body }): AuthResponse => {
-  const role = (body as { role?: Role } | undefined)?.role ?? ROLE.GAMER;
-  return { token: "mock.jwt.token", user: { ...mockUser, role } };
-});
-
 /**
  * QA switch for states the happy-path fixtures never reach. Add `?mock=<scenario>` to the
- * page URL, e.g. /feed?mock=vote-fail or /leaderboard?mock=empty. Mock mode only.
+ * page URL, e.g. /feed?mock=vote-fail, /leaderboard?mock=empty, /login?mock=auth-fail or
+ * /login?mock=short-session. Mock mode only.
  */
-type MockScenario = "empty" | "feed-fail" | "vote-fail" | "vote-404" | "leaderboard-fail";
+type MockScenario =
+  | "empty"
+  | "feed-fail"
+  | "vote-fail"
+  | "vote-404"
+  | "leaderboard-fail"
+  | "auth-fail"
+  | "short-session";
 
 function scenario(): MockScenario | null {
   if (typeof window === "undefined") return null;
@@ -79,6 +84,68 @@ function scenario(): MockScenario | null {
 
 function serverError(): never {
   throw new ApiError(500, API_ERROR_CODE.UNKNOWN_ERROR, "Mock server error.");
+}
+
+/* ------------------------------ auth ------------------------------ */
+
+const MOCK_SESSION_SECONDS = 7 * 24 * 60 * 60; // README: JWT_EXPIRES_IN=7d
+const SHORT_SESSION_SECONDS = 20;
+
+function base64Url(value: object): string {
+  return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * An unsigned JWT with the README §18 payload, so the client's decode, role-adapter and
+ * expiry paths run exactly as they will against the real API. `?mock=short-session`
+ * issues a 20-second token to test expiry logout.
+ */
+function mockToken(user: User): string {
+  const lifetime = scenario() === "short-session" ? SHORT_SESSION_SECONDS : MOCK_SESSION_SECONDS;
+  const payload = {
+    userId: user.id,
+    role: toApiRole(user.role),
+    tier: user.tier,
+    exp: Math.floor(Date.now() / 1000) + lifetime,
+  };
+  return `${base64Url({ alg: "none", typ: "JWT" })}.${base64Url(payload)}.mock`;
+}
+
+function findAccount(email: unknown): User | undefined {
+  const normalised = typeof email === "string" ? email.trim().toLowerCase() : "";
+  return mockAccounts.find((account) => account.email === normalised);
+}
+
+route("POST", "/auth/login", ({ body }): AuthResponse => {
+  if (scenario() === "auth-fail") serverError();
+  const account = findAccount((body as Partial<LoginRequest> | undefined)?.email);
+  if (!account) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Invalid email or password.");
+  return { token: mockToken(account) };
+});
+
+route("POST", "/auth/signup", ({ body }): AuthResponse => {
+  if (scenario() === "auth-fail") serverError();
+  const request = (body ?? {}) as Partial<SignupRequest>;
+  if (findAccount(request.email)) {
+    throw new ApiError(409, API_ERROR_CODE.VALIDATION_ERROR, "This email is already registered.");
+  }
+  const appRole = fromApiRole(request.role);
+  if (!appRole) throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Choose a valid role.");
+  const account: User = {
+    id: `usr_new_${mockAccounts.length + 1}`,
+    email: String(request.email).trim().toLowerCase(),
+    role: appRole.role,
+    tier: TIER.FREE,
+    isVerifiedAdult: false,
+  };
+  mockAccounts.push(account);
+  return { token: mockToken(account) };
+});
+
+/** The signed-in mock user (falls back to the demo gamer before login). */
+function currentMockUser(): Pick<User, "id" | "tier"> {
+  const session = getSession();
+  return session ? { id: session.userId, tier: session.tier } : mockUser;
 }
 
 /** README §19 / .env.example: ADS_EVERY_N_CLIPS=5. Lowered so the demo reaches an ad quickly. */
@@ -90,8 +157,9 @@ route("GET", "/api/v1/feed", ({ query }): FeedPage => {
   if (scenario() === "empty") return { items: [], nextCursor: null };
 
   // README §14: the feed excludes the caller's own clips.
+  const user = currentMockUser();
   const ownGamerIds = new Set(
-    mockGamers.filter((gamer) => gamer.userId === mockUser.id).map((gamer) => gamer.id),
+    mockGamers.filter((gamer) => gamer.userId === user.id).map((gamer) => gamer.id),
   );
   const clips = mockClips.filter((clip) => !ownGamerIds.has(clip.ownerId));
   const start = Number(query.get("cursor") ?? 0);
@@ -111,7 +179,7 @@ route("GET", "/api/v1/feed", ({ query }): FeedPage => {
       },
     });
     const position = start + index + 1;
-    if (mockUser.tier === TIER.FREE && position % MOCK_ADS_EVERY_N_CLIPS === 0) {
+    if (user.tier === TIER.FREE && position % MOCK_ADS_EVERY_N_CLIPS === 0) {
       items.push({ kind: "ad", ad: mockHouseAd });
     }
   });

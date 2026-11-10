@@ -132,17 +132,48 @@ export interface User {
   isVerifiedAdult: boolean;
 }
 
-/** README §18 JWT payload. */
+/**
+ * Role values the API may send or accept. UNCONFIRMED (ask Rabasa): README §13 uses a
+ * split `role` (GAMER | COACH | SPONSOR) plus `tier` (FREE | PAID); the Prisma schema has
+ * one combined UserRole enum. lib/role-adapter.ts is the only place that reads or writes
+ * these; the rest of the app uses ROLE and TIER.
+ */
+export const API_ROLE = {
+  GAMER: "GAMER",
+  COACH: "COACH",
+  SPONSOR: "SPONSOR",
+  GAMER_FREE: "GAMER_FREE",
+  GAMER_PAID: "GAMER_PAID",
+  ADMIN: "ADMIN",
+} as const;
+export type ApiRole = (typeof API_ROLE)[keyof typeof API_ROLE];
+
+/**
+ * The JWT payload as the API signs it. README §18 confirms userId, role and tier.
+ * UNCONFIRMED: whether `role` is split or combined (then `tier` may be absent), and `exp`
+ * (the standard JWT expiry claim; README sets JWT_EXPIRES_IN=7d).
+ */
+export interface RawJwtPayload {
+  userId: string;
+  role: string;
+  tier?: string;
+  /** Seconds since the epoch. */
+  exp?: number;
+}
+
+/** The signed-in user as the app sees it, after lib/role-adapter.ts. */
 export interface JwtPayload {
   userId: string;
   role: Role;
   tier: Tier;
 }
 
+/** README §14: POST /auth/signup "Create account with role (tier starts FREE)". */
 export interface SignupRequest {
   email: string;
   password: string;
-  role: Role;
+  /** Sent in whichever format API_ROLE_FORMAT selects (lib/role-adapter.ts). */
+  role: ApiRole;
 }
 
 export interface LoginRequest {
@@ -150,10 +181,13 @@ export interface LoginRequest {
   password: string;
 }
 
-/** Assumed: README only says login "Returns JWT". */
+/**
+ * UNCONFIRMED: README only says login "Returns JWT". We read `token` and nothing else;
+ * role and tier come from the token payload. The signup response is not documented at
+ * all; if it carries no token, the client logs in with the same credentials.
+ */
 export interface AuthResponse {
   token: string;
-  user: User;
 }
 
 /* ------------------------------------------------------------------ */

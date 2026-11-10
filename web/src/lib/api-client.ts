@@ -1,5 +1,5 @@
 // The only module that talks to the Play2Pro API.
-// - Adds `Authorization: Bearer <jwt>` when a token is stored.
+// - Adds `Authorization: Bearer <jwt>` when signed in (the token lives in lib/session.ts).
 // - Turns every failure into an ApiError using README's { error: { code, message } } shape.
 // - With env.useMocks, requests are answered by src/mocks instead of the network.
 
@@ -7,6 +7,7 @@ import { env } from "../config/env.ts";
 import { mockRequest } from "../mocks/index.ts";
 import { API_ERROR_CODE } from "../types/api.ts";
 import { ApiError, toApiError } from "./api-error.ts";
+import { clearSession, getToken } from "./session.ts";
 
 export { ApiError } from "./api-error.ts";
 
@@ -20,33 +21,6 @@ export interface RequestOptions {
   /** Set false for public routes that must not send the JWT. Default true. */
   auth?: boolean;
 }
-
-const TOKEN_KEY = "play2pro.token";
-
-/** JWT storage. localStorage is fine for the hackathon demo; swap for a cookie later if needed. */
-export const tokenStore = {
-  get(): string | null {
-    try {
-      return localStorage.getItem(TOKEN_KEY);
-    } catch {
-      return null;
-    }
-  },
-  set(token: string): void {
-    try {
-      localStorage.setItem(TOKEN_KEY, token);
-    } catch {
-      /* storage unavailable (private mode): keep the session in memory only */
-    }
-  },
-  clear(): void {
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* ignore */
-    }
-  },
-};
 
 export function buildPath(path: string, query?: QueryParams): string {
   if (!query) return path;
@@ -72,7 +46,7 @@ export async function apiRequest<T>(
 
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const token = auth ? tokenStore.get() : null;
+  const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
@@ -99,7 +73,8 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const apiError = toApiError(response.status, data);
-    if (apiError.code === API_ERROR_CODE.UNAUTHENTICATED) tokenStore.clear();
+    // A rejected token means the session is over (expired, revoked, or signed by another key).
+    if (token && apiError.code === API_ERROR_CODE.UNAUTHENTICATED) clearSession();
     throw apiError;
   }
 
