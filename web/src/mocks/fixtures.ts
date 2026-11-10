@@ -111,6 +111,8 @@ export const mockGamers: GamerProfile[] = [
     aiSummary: null,
     radScore: 8540,
     visibility: PROFILE_VISIBILITY.PUBLIC,
+    // Not a verified adult: can't receive donations (README §18). Disables the donate button.
+    isVerifiedAdult: false,
   },
 ];
 

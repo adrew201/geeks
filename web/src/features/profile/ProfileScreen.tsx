@@ -12,8 +12,8 @@ import { cn } from "../../lib/cn.ts";
 import { useSession } from "../../lib/session.ts";
 import { DESKTOP_QUERY, useMediaQuery } from "../../lib/use-media-query.ts";
 import { PROFILE_VISIBILITY, type AiSkillSummary, type GamerProfile } from "../../types/api.ts";
+import { DonateButton } from "../payments/DonateButton.tsx";
 import { AiSummaryReview } from "./AiSummaryReview.tsx";
-import { DonateSlot } from "./DonateSlot.tsx";
 import { EvidenceSection } from "./EvidenceClips.tsx";
 import { MobileOwnerIdentity, MobileViewerIdentity, OwnerIdentityCard, ProfileHeaderCard } from "./IdentityCards.tsx";
 import { DesktopMetrics, MobileMetrics } from "./MetricCards.tsx";
@@ -143,7 +143,7 @@ function viewerModel({ controller, profile, kind }: ViewerProps) {
     missing: missingPassportFields(profile),
     trustLevels: trustLevelsOnPage(profile, summary, clips),
     hasStrengths: hasStrengths(summary),
-    // Owners never donate to themselves; the slot is for every other viewer.
+    // Owners never donate to themselves; the button is for every other viewer.
     showDonate: kind !== "owner" && controller.viewer !== "owner",
   };
 }
@@ -159,7 +159,7 @@ function DesktopViewerProfile(props: ViewerProps) {
       ) : (
         <div className="flex items-center justify-between gap-3">
           <BackButton kind={kind} />
-          {model.showDonate && <DonateSlot gamerId={profile.id} layout="desktop" />}
+          {model.showDonate && <DonateButton profile={profile} layout="desktop" />}
         </div>
       )}
       <ProfileHeaderCard profile={profile} />
@@ -197,7 +197,7 @@ function MobileViewerProfile(props: ViewerProps) {
           {onExitPreview && <PreviewBanner onExit={onExitPreview} />}
           <MobileViewerIdentity
             profile={profile}
-            action={model.showDonate && <DonateSlot gamerId={profile.id} layout="mobile" />}
+            action={model.showDonate && <DonateButton profile={profile} layout="mobile" />}
           />
           <MobileMetrics metrics={model.metrics} />
           <MobilePassportCard summary={model.summary} missing={model.missing} />

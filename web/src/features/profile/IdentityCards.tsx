@@ -123,7 +123,7 @@ export function OwnerIdentityCard({
 
 /* ------------------------------ 12M: viewer identity ------------------------------ */
 
-/** 12M identity card. `action` is where 12M had its unlock button (now the donate slot). */
+/** 12M identity card. `action` is where 12M had its unlock button (now the donate button). */
 export function MobileViewerIdentity({ profile, action }: { profile: GamerProfile; action?: ReactNode }) {
   const name = displayName(profile);
   const line = identityLine(profile);

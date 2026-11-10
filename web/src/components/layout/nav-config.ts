@@ -29,6 +29,8 @@ export const ROUTES = {
   discover: "/discover",
   /** Gamer profile (pages 12 + 06). Build links with gamerProfilePath(). */
   gamerProfile: "/gamers/:id",
+  /** PayPal return URL (page 15 repurposed, docs/ui-audit.md §9). */
+  payReturn: "/pay/return",
   privacy: "/privacy",
   terms: "/terms",
 } as const;
@@ -36,6 +38,14 @@ export const ROUTES = {
 /** Public Gamer ID (pages 12 + 06, docs/ui-audit.md §9). */
 export function gamerProfilePath(gamerId: string): string {
   return `/gamers/${encodeURIComponent(gamerId)}`;
+}
+
+/** Query flag that reopens the donate modal on a Gamer ID (after login or a failed payment). */
+export const DONATE_PARAM = "donate";
+
+/** The Gamer ID with the donate modal open. */
+export function donatePath(gamerId: string): string {
+  return `${gamerProfilePath(gamerId)}?${DONATE_PARAM}=1`;
 }
 
 export interface NavItem {

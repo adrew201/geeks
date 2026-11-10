@@ -5,11 +5,13 @@ import { RequireAuth } from "./features/auth/RequireAuth.tsx";
 import SignupPage from "./features/auth/SignupPage.tsx";
 import FeedPage from "./features/feed/FeedPage.tsx";
 import LeaderboardPage from "./features/leaderboard/LeaderboardPage.tsx";
+import PaymentReturnPage from "./features/payments/PaymentReturnPage.tsx";
 import GamerProfilePage from "./features/profile/GamerProfilePage.tsx";
 import PassportPage from "./features/profile/PassportPage.tsx";
 import ProfileLayout from "./features/profile/ProfileLayout.tsx";
 import AppLayout from "./layouts/AppLayout.tsx";
 import AuthLayout from "./layouts/AuthLayout.tsx";
+import CheckoutLayout from "./layouts/CheckoutLayout.tsx";
 import PublicLayout from "./layouts/PublicLayout.tsx";
 import ComingSoonPage from "./pages/ComingSoonPage.tsx";
 import HomePage from "./pages/HomePage.tsx";
@@ -19,7 +21,8 @@ import { ROLE } from "./types/api.ts";
 // Per docs/instructions.md: a real page is added only once it renders with real or mocked
 // data. Planned nav routes (docs/ui-audit.md §9) render ComingSoonPage behind the same role
 // guards they'll keep, so nav links never hit a blank screen.
-// Still to wire: CheckoutLayout → /pay/:orderId, /pay/return.
+// Payments: checkout starts in a modal (features/payments/PaymentModal) on the page that
+// sells something, so there is no /pay/:orderId page; PayPal returns to /pay/return.
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -44,6 +47,12 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
+      {
+        // PayPal return/cancel URL (README §15.1 step 3). Any signed-in payer; a signed-out
+        // one logs in and comes back with the same query.
+        element: <CheckoutLayout />,
+        children: [{ path: ROUTES.payReturn, element: <PaymentReturnPage /> }],
+      },
       {
         element: <AppLayout />,
         children: [

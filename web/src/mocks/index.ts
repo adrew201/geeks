@@ -12,7 +12,11 @@ import {
   ROLE,
   TIER,
   type AuthResponse,
+  PAYMENT_ORDER_STATUS,
+  PAYMENT_PURPOSE,
+  type DonationRequest,
   type DonationResponse,
+  type PaymentOrder,
   type FeedPage,
   type GamerDashboard,
   type GamerProfile,
@@ -81,6 +85,15 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  *   ?mock=leaderboard-no-me      me=null for every game (as for coaches and sponsors)
  *   ?mock=leaderboard-bad-game   400 for every slug (unknown-game state)
  *   ?mock=leaderboard-fail       500
+ *
+ * Donations (any signed-in user, on a Gamer ID that isn't yours, then /pay/return):
+ *   default              order is PENDING for ~6s after the first status check, then COMPLETED
+ *   ?mock=donate-fail     POST /donations answers 502 PAYPAL_ERROR (order-failed state, retry)
+ *   ?mock=donate-ineligible POST /donations answers 403 NOT_VERIFIED_ADULT
+ *   ?mock=order-pending   the order never leaves PENDING (still-pending, polling stops at 2 min)
+ *   ?mock=order-confirmed / order-failed / order-cancelled / order-expired  that status at once
+ * The scenario carries over from the profile to /pay/return (approval is simulated in-app).
+ * gmr_vortex has isVerifiedAdult=false, so its donate button is disabled.
  */
 type MockScenario =
   | "empty"
@@ -100,7 +113,14 @@ type MockScenario =
   | "profile-private"
   | "profile-no-clips"
   | "profile-update-fail"
-  | "dashboard-fail";
+  | "dashboard-fail"
+  | "donate-fail"
+  | "donate-ineligible"
+  | "order-pending"
+  | "order-confirmed"
+  | "order-failed"
+  | "order-cancelled"
+  | "order-expired";
 
 function scenario(): MockScenario | null {
   if (typeof window === "undefined") return null;
@@ -348,14 +368,84 @@ route("PATCH", "/api/v1/gamers/:id", ({ params, body }): GamerProfile => {
 
 route("GET", "/api/v1/bounties", () => mockBounties);
 
-route(
-  "POST",
-  "/api/v1/donations",
-  (): DonationResponse => ({
-    approvalUrl: "https://www.sandbox.paypal.com/checkoutnow?token=MOCK-ORDER-1",
-    orderId: "MOCK-ORDER-1",
-  }),
-);
+/* ------------------------------ payments ------------------------------ */
+
+interface MockOrder {
+  order: PaymentOrder;
+  /** Epoch ms of the first status check; the default flow completes MOCK_CONFIRM_AFTER_MS later. */
+  firstCheckedAt?: number;
+}
+
+const MOCK_CONFIRM_AFTER_MS = 6_000;
+const mockOrders = new Map<string, MockOrder>();
+
+// README §14: any signed-in user. README §18: the recipient must be a verified adult.
+route("POST", "/api/v1/donations", ({ body }): DonationResponse => {
+  if (!getSession()) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  if (scenario() === "donate-fail") {
+    throw new ApiError(502, API_ERROR_CODE.PAYPAL_ERROR, "PayPal is unavailable. Try again.");
+  }
+  const request = (body ?? {}) as Partial<DonationRequest>;
+  const gamer = findGamer(String(request.gamerId ?? ""));
+  if (scenario() === "donate-ineligible" || gamer.isVerifiedAdult === false) {
+    throw new ApiError(
+      403,
+      API_ERROR_CODE.NOT_VERIFIED_ADULT,
+      "This gamer needs a verified adult PayPal account to receive donations.",
+    );
+  }
+  if (!Number.isInteger(request.amount) || (request.amount ?? 0) < 100) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Amount must be whole cents, at least 100.");
+  }
+  const orderId = `MOCK-ORDER-${mockOrders.size + 1}-${Date.now().toString(36).toUpperCase()}`;
+  mockOrders.set(orderId, {
+    order: {
+      orderId,
+      status: PAYMENT_ORDER_STATUS.CREATED,
+      amount: request.amount,
+      purpose: PAYMENT_PURPOSE.DONATION,
+      gamerId: gamer.id,
+      gamerTag: gamer.gamerTags[0],
+      createdAt: new Date().toISOString(),
+    },
+  });
+  return { approvalUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`, orderId };
+});
+
+const ORDER_SCENARIO_STATUS: Partial<Record<MockScenario, PaymentOrder["status"]>> = {
+  "order-pending": PAYMENT_ORDER_STATUS.APPROVED,
+  "order-confirmed": PAYMENT_ORDER_STATUS.COMPLETED,
+  "order-failed": PAYMENT_ORDER_STATUS.FAILED,
+  "order-cancelled": PAYMENT_ORDER_STATUS.CANCELLED,
+  "order-expired": PAYMENT_ORDER_STATUS.EXPIRED,
+};
+
+// UNCONFIRMED endpoint (see PaymentOrder). Orders made in another tab or before a reload are
+// unknown to the mock; MOCK-ORDER-* ids are re-created as a $10 donation so /pay/return still works.
+route("GET", "/api/v1/orders/:id", ({ params }): PaymentOrder => {
+  if (!getSession()) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  let entry = mockOrders.get(params.id);
+  if (!entry) {
+    if (!params.id.startsWith("MOCK-ORDER-")) notFound("Order not found.");
+    entry = {
+      order: {
+        orderId: params.id,
+        status: PAYMENT_ORDER_STATUS.CREATED,
+        amount: 1000,
+        purpose: PAYMENT_PURPOSE.DONATION,
+      },
+    };
+    mockOrders.set(params.id, entry);
+  }
+  const forced = ORDER_SCENARIO_STATUS[scenario() as MockScenario];
+  if (forced) return { ...entry.order, status: forced };
+  entry.firstCheckedAt ??= Date.now();
+  const status =
+    Date.now() - entry.firstCheckedAt >= MOCK_CONFIRM_AFTER_MS
+      ? PAYMENT_ORDER_STATUS.COMPLETED
+      : PAYMENT_ORDER_STATUS.APPROVED;
+  return { ...entry.order, status };
+});
 
 route("GET", "/api/v1/ads/next", () => mockHouseAd);
 

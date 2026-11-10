@@ -243,6 +243,13 @@ export interface GamerProfile {
   visibility?: ProfileVisibility;
   /** UNCONFIRMED: not in README §13 (see AI_SUMMARY_STATUS). */
   aiSummaryStatus?: AiSummaryStatus;
+  /**
+   * UNCONFIRMED (ask Rabasa): README §18 says receiving donations needs `isVerifiedAdult`,
+   * but that flag lives on User and the public Gamer ID doesn't expose it. When the API sends
+   * `false` the donate button is replaced by a "can't receive donations yet" note; when the
+   * field is missing the button shows and POST /donations' 403 NOT_VERIFIED_ADULT is handled.
+   */
+  isVerifiedAdult?: boolean;
 }
 
 /**
@@ -411,6 +418,64 @@ export interface DonationResponse {
   approvalUrl: string;
   orderId: string;
 }
+
+/**
+ * UNCONFIRMED (endpoint not in README §14; ask Rabasa): GET /api/v1/orders/:id, the order
+ * status the /pay/return page polls. README §9.4 mentions polling order status as the demo
+ * fallback for slow webhooks, but only names PayPal's own GET /v2/checkout/orders/:id, which
+ * the browser must never call. Assumed: any signed-in user can read orders they created, and
+ * `status` only becomes COMPLETED after the verified PAYMENT.CAPTURE.COMPLETED webhook
+ * (README §15.1 step 5). Returning from PayPal is never treated as success.
+ * Statuses: CREATED / APPROVED are PayPal's order statuses before capture; PENDING is a
+ * capture waiting on PayPal. Unknown values are treated as pending, never as success.
+ */
+export const PAYMENT_ORDER_STATUS = {
+  CREATED: "CREATED",
+  APPROVED: "APPROVED",
+  PENDING: "PENDING",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
+  EXPIRED: "EXPIRED",
+} as const;
+export type PaymentOrderStatus = (typeof PAYMENT_ORDER_STATUS)[keyof typeof PAYMENT_ORDER_STATUS];
+
+/** UNCONFIRMED: what the order paid for. Only DONATION is built; the others reuse the flow. */
+export const PAYMENT_PURPOSE = {
+  DONATION: "DONATION",
+  BOUNTY: "BOUNTY",
+  SUBSCRIPTION: "SUBSCRIPTION",
+} as const;
+export type PaymentPurpose = (typeof PAYMENT_PURPOSE)[keyof typeof PAYMENT_PURPOSE];
+
+/** UNCONFIRMED response of GET /api/v1/orders/:id. Only `orderId` and `status` are relied on. */
+export interface PaymentOrder {
+  orderId: string;
+  status: PaymentOrderStatus | (string & {});
+  /** UNCONFIRMED. */
+  amount?: Cents;
+  /** UNCONFIRMED. */
+  purpose?: PaymentPurpose;
+  /** UNCONFIRMED: recipient Gamer ID (donations). */
+  gamerId?: string;
+  /** UNCONFIRMED: recipient display name (donations). */
+  gamerTag?: string;
+  /** UNCONFIRMED. */
+  createdAt?: IsoDate;
+}
+
+/**
+ * UNCONFIRMED (ask Rabasa): the query PayPal sends the payer back with. PayPal appends
+ * `token=<orderId>` (and `PayerID`) to the return_url and `token` to the cancel_url; the
+ * backend sets both to WEB_ORIGIN (README §8.1). Assumed: return_url = /pay/return and
+ * cancel_url = /pay/return?cancelled=1. `orderId` is also accepted in case the backend adds it.
+ * PayerID is never read.
+ */
+export const PAYPAL_RETURN_PARAM = {
+  ORDER_ID: "orderId",
+  TOKEN: "token",
+  CANCELLED: "cancelled",
+} as const;
 
 export interface SubscriptionRequest {
   plan: SubscriptionPlan;
