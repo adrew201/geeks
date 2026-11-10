@@ -4,9 +4,9 @@ import { BASELINE_ELO, expectedScore, kFactor, updateElo, voterWeight } from "./
 describe("voterWeight", () => {
   it("counts coaches at 2.5 and everyone else at 1", () => {
     expect(voterWeight("COACH")).toBe(2.5);
-    expect(voterWeight("GAMER_FREE")).toBe(1);
-    expect(voterWeight("GAMER_PAID")).toBe(1);
+    expect(voterWeight("GAMER")).toBe(1);
     expect(voterWeight("SPONSOR")).toBe(1);
+    expect(voterWeight("ADMIN")).toBe(1);
   });
 });
 
