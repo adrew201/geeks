@@ -1,0 +1,291 @@
+/* ==========================================================================
+   PLAY2PRO DESIGN TOKENS: the single source of truth for the web app.
+   Change a value here and every Tailwind utility that uses it updates.
+   Source: docs/ui-audit.md §2 (extracted from the 32 HTML prototypes).
+
+   Rules:
+   - Tailwind's default palette, radii, shadows, fonts and font sizes are
+     reset, so components can only use these tokens.
+   - Accent tints use opacity modifiers (decision 8): one tint and one
+     border opacity per accent:
+       tint   = /14   e.g. bg-primary/14
+       border = /35   e.g. border-primary/35
+     These replace the prototypes' .08/.1/.12/.14/.15/.2 tints and
+     .25/.3/.35/.4 borders. The class strings live in
+     components/ui/tone-styles.ts.
+   - Exact duplicates merged: --verified-green = --success-green (#10B981);
+     --self-reported-slate = --text-muted; --silver-accent = --text-secondary;
+     #FFF = #FFFFFF.
+   ========================================================================== */
+
+@theme static {
+  /* ---------- Colours ---------- */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Surfaces, darkest to lightest */
+  --color-page: #06080c; /* prototype hard-coded ×50: deepest backdrop, footer, thumbs */
+  --color-bg: #0b0e14; /* --bg-dark: app background */
+  --color-header: #0e121a; /* prototype hard-coded ×44: headers, sidebar, strips */
+  --color-inset: #11151f; /* prototype hard-coded ×100: inputs, nested panels */
+  --color-surface: #161b26; /* --card-surface */
+  --color-surface-hover: #1e2535; /* --card-surface-hover */
+  --color-avatar: #2a3447; /* .avatar-sm background */
+  --color-disabled: #1e293b; /* .btn-primary:disabled bg; thumbnail gradient start */
+  --color-thumb-end: #0f172a; /* thumbnail gradient end */
+  --color-skeleton-hi: #222938; /* skeleton shimmer highlight */
+  --color-border: #262e40; /* --border-color */
+  --color-border-light: #333d54; /* --border-light */
+
+  /* Text */
+  --color-fg: #f8fafc; /* --text-primary */
+  --color-fg-secondary: #94a3b8; /* --text-secondary (= silver-accent) */
+  --color-fg-muted: #64748b; /* --text-muted (= self-reported-slate) */
+
+  /* Accents */
+  --color-primary: #3b82f6; /* --primary-blue */
+  --color-primary-hover: #2563eb;
+  --color-ai: #8b5cf6; /* --ai-violet */
+  --color-ai-hover: #7c3aed;
+  --color-success: #10b981; /* --verified-green = --success-green */
+  --color-success-hover: #0d9668; /* 15D .btn-success:hover */
+  --color-warning: #f59e0b; /* --status-amber */
+  --color-danger: #ef4444; /* --status-red */
+  --color-danger-soft: #fca5a5; /* 02D .alert-banner.error text */
+  --color-success-soft: #6ee7b7; /* 02D .alert-banner.success text */
+
+  /* Leaderboard podium (10D); silver = fg-secondary */
+  --color-rank-gold: #d97706;
+  --color-rank-bronze: #b45309;
+
+  /* PayPal brand (13D/14D) */
+  --color-paypal: #ffc439;
+  --color-paypal-hover: #f2b82e;
+  --color-paypal-ink: #003087;
+
+  /* ---------- Typography ---------- */
+  --font-*: initial;
+  /* Inter was loaded by every prototype but only as a fallback, so it's dropped. */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Space Grotesk max weight is 700 (verified: @fontsource ships 300–700).
+     Prototype weight 800 on display text renders as 700. */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Font sizes used by the prototypes (px). The 8px mobile badge text is folded into 9. */
+  --text-*: initial;
+  --text-9: 9px;
+  --text-10: 10px;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-15: 15px;
+  --text-16: 16px;
+  --text-18: 18px;
+  --text-20: 20px;
+  --text-22: 22px;
+  --text-24: 24px;
+  --text-26: 26px;
+  --text-28: 28px;
+  --text-32: 32px;
+  --text-34: 34px;
+  --text-36: 36px;
+  --text-40: 40px;
+  --text-46: 46px;
+
+  /* ---------- Radii (values actually used) ---------- */
+  --radius-*: initial;
+  --radius-xs: 4px; /* badges-in-boxes, state buttons, skeleton (hard-coded ×45) */
+  --radius-sm: 6px; /* --radius-sm */
+  --radius-8: 8px; /* brand logo, misc (hard-coded ×30) */
+  --radius-md: 10px; /* --radius-md: buttons, inputs, nav items */
+  --radius-12: 12px; /* avatar-md, inner cards (hard-coded ×14) */
+  --radius-lg: 14px; /* --radius-lg: cards */
+  --radius-xl: 20px; /* --radius-xl: hero cards, modals (13M used 24px; unified) */
+  /* rounded-full is built into Tailwind (prototype --radius-full / 50%). */
+
+  /* ---------- Shadows ---------- */
+  --shadow-*: initial;
+  --shadow-card: 0 10px 30px -10px rgb(0 0 0 / 0.5);
+  --shadow-dropdown: 0 20px 40px -15px rgb(0 0 0 / 0.7);
+  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.85);
+  --shadow-sheet: 0 -10px 40px rgb(0 0 0 / 0.8); /* 13M bottom sheet */
+  --shadow-toast: 0 10px 25px rgb(0 0 0 / 0.6); /* mobile toast */
+  --shadow-glow-primary: 0 4px 14px rgb(59 130 246 / 0.35);
+  --shadow-glow-ai: 0 4px 14px rgb(139 92 246 / 0.35);
+  --shadow-glow-success: 0 4px 14px rgb(16 185 129 / 0.35);
+  --shadow-glow-paypal: 0 4px 16px rgb(255 196 57 / 0.25);
+  --shadow-ring-primary: 0 0 20px rgb(59 130 246 / 0.25); /* 12D .avatar-lg */
+  --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.15); /* 07D .input-control:focus */
+
+  /* ---------- Motion ---------- */
+  --ease-toast: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* desktop toast (overshoot) */
+  --ease-sheet: cubic-bezier(0.16, 1, 0.3, 1); /* 13D modalSlideUp / 13M sheetSlideUp */
+  --ease-pulse: cubic-bezier(0.215, 0.61, 0.355, 1); /* 15D pulseExpand */
+
+  /* Only animations the HTML actually defines (docs/ui-audit.md §5a). */
+  --animate-spin: spin 1s linear infinite; /* 02D:830, 03D:831/842, 04D:860 */
+  --animate-spin-fast: spin 0.8s linear infinite; /* 13D:553, 16D:585 .spinner */
+  --animate-spin-medium: spin 2s linear infinite; /* 09D:556 .spin-icon */
+  --animate-spin-slow: spin 3s linear infinite; /* 15D:341, 15M:166 .spin-icon */
+  --animate-skeleton: skeleton-loading 1.5s infinite; /* 08D:595, 10D:622, 11D:566, 12D:518 */
+  --animate-pulse-ring: pulse-expand 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1); /* 15D:318 */
+  --animate-modal-in: modal-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); /* 13D:281 */
+  --animate-sheet-in: sheet-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); /* 13M:111 */
+
+  /* @keyframes spin: 02D:856, 03D:864, 04D:882, 09D:557, 13D:556, 15D:344, 15M:167, 16D:588 */
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* @keyframes skeletonLoading: 08D:599, 10D:626, 11D:570, 12D:522 */
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* @keyframes pulseExpand: 15D:321 */
+  @keyframes pulse-expand {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.3;
+    }
+    100% {
+      transform: scale(0.95);
+      opacity: 0.8;
+    }
+  }
+
+  /* @keyframes modalSlideUp: 13D:285 */
+  @keyframes modal-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* @keyframes sheetSlideUp: 13M:114 */
+  @keyframes sheet-slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ---------- Gradient utilities (prototype-defined) ---------- */
+
+/* Brand logo / brand mark: linear-gradient(135deg, primary-blue, ai-violet), ×30 */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-primary), var(--color-ai));
+}
+
+/* Clip thumbnails / tile avatars: linear-gradient(135deg, #1E293B, #0F172A), ×14 */
+@utility bg-thumb-gradient {
+  background-image: linear-gradient(135deg, var(--color-disabled), var(--color-thumb-end));
+}
+
+/* Skill bars: linear-gradient(90deg, primary-blue, ai-violet) (06D, 06M, 12D) */
+@utility bg-skill-gradient {
+  background-image: linear-gradient(90deg, var(--color-primary), var(--color-ai));
+}
+
+/* Skeleton: linear-gradient(90deg, #161B26 25%, #222938 50%, #161B26 75%) at 200% (08D:591–596) */
+@utility bg-skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface) 25%,
+    var(--color-skeleton-hi) 50%,
+    var(--color-surface) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* Hero gradient text: linear-gradient(135deg, text-primary 30–40%, text-secondary) (01D, 02D) */
+@utility text-gradient-hero {
+  background-image: linear-gradient(135deg, var(--color-fg) 35%, var(--color-fg-secondary));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Corner glow: radial-gradient(circle at 0% 0%, primary .12, transparent 70%) (02D brand panel) */
+@utility bg-glow-primary {
+  background-image: radial-gradient(
+    circle at 0% 0%,
+    color-mix(in srgb, var(--color-primary) 12%, transparent),
+    transparent 70%
+  );
+}
+
+/* Violet corner glow: radial-gradient(circle at 0% 0%, ai-violet .08–.12, transparent 60–70%)
+   (12D .profile-header-card, 12M identity card, 06D .ai-card, 06M AI card), unified at 12%. */
+@utility bg-glow-ai {
+  background-image: radial-gradient(
+    circle at 0% 0%,
+    color-mix(in srgb, var(--color-ai) 12%, transparent),
+    transparent 70%
+  );
+}
+
+/* ==========================================================================
+   ANIMATION NOTES FROM THE PROTOTYPES (verbatim; docs/ui-audit.md §5b)
+   These are NOT implemented yet. They describe planned motion that the HTML
+   never defined. Implement them in the owning feature, not here.
+   ("*\/" below stands for the original comment terminator, which can't
+   appear inside a CSS comment.)
+
+   01 — High-Fidelity UI.html (desktop):
+     D:318  /* HERO SHOWCASE STATIC ANIMATION PLACEHOLDER *\/
+     D:495  /* SECTION H: FUTURE ANIMATION SHOWCASE PLACEHOLDER *\/
+     D:672  <!-- RIGHT HERO SHOWCASE: ANIMATION PLACEHOLDER -->
+     D:674  badge: "ANIMATION PLACEHOLDER"
+     D:676  label: "Product Pipeline Flow"; stages: "01. EVIDENCE" Gameplay Clips →
+            "02. PASSPORT" AI Insights → "03. DISCOVERY" Coach Match
+     D:707  "Interactive motion preview component reserved for Framer Motion / Lottie integration."
+     D:905  <!-- SECTION H: FUTURE ANIMATION SHOWCASE PLACEHOLDER -->
+     D:908  badge: "MOTION PREVIEW — COMING SOON"
+     D:910  heading: "See the Potential Behind Every Player"
+     D:911  "Interactive product motion component storyboard reserved for frontend animation component."
+     D:915–943 storyboard frames: "01" Clip Submitted → "02" Evidence Extracted →
+            "03" Passport Built → "04" Coach Discovers → "05" Footage Unlocked
+            (frame 05 is out of scope: unlock/VOD removed by decision 3)
+     D:1045 toast: "Focusing on Motion Preview placeholder"
+
+   Other files:
+     03D:524, 04D:520  <!-- RIGHT REAL-TIME PROFILE PREVIEW PANEL -->
+     06D:958  "Demonstration metric cards. Dynamic radar/score metrics expand as backend AI capability is confirmed."
+     06M:533  "Swipe right →"
+     08D:591, 11D:562  /* SKELETON LOADING ANIMATION *\/   (implemented: animate-skeleton)
+     08D:1038 // State B: Skeleton Loading
+     09D:675  <!-- Simulated Gameplay Graphic Background -->
+     11M:143  /* HORIZONTAL CAROUSEL FOR FEATURED CANDIDATES MOBILE *\/
+     16D:412  /* REALISTIC PLAYER CONTROLS *\/
+     16D:686  <!-- REALISTIC PLAYER CONTROLS BAR -->
+     16M:247  <!-- COLLAPSIBLE RECEIPT CARD -->
+
+   Defined in the HTML as transitions (applied in components, not keyframes):
+     - Toast: translateY(100px)→0 + opacity, 0.3s; desktop ease-toast, mobile ease; dwell 2500ms
+     - Buttons, nav items, chips, cards: all 0.2s ease
+     - Hover lift: translateY(-2px) on 05D .action-tile, 06D .evidence-card, 11D .featured-card;
+       translateY(-4px) on 10D .podium-card; scale(1.08) on 16D play button
+     - 06M carousel: CSS scroll-snap (M:293/304)
+   ========================================================================== */
