@@ -1,0 +1,56 @@
+# Render Blueprint for Play2Pro (skeleton deploy). Owner: Rabasa.
+# Everything runs on free plans. There is no separate worker service: the BullMQ
+# workers run inside the API process via RUN_WORKERS_IN_API=true.
+# Free Postgres expires after 30 days, which is fine for the hackathon.
+services:
+  - type: web
+    name: play2pro-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: RUN_WORKERS_IN_API
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: play2pro-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: play2pro-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Secrets: Render prompts for these on first Blueprint sync, never commit values.
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+
+  - type: keyvalue
+    name: play2pro-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction # BullMQ requires this
+    ipAllowList: [] # internal connections only
+
+databases:
+  - name: play2pro-db
+    plan: free
+    region: oregon
+    databaseName: play2pro
+    user: play2pro
