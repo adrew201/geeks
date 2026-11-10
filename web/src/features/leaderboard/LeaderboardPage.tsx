@@ -8,9 +8,9 @@ import { Input } from "../../components/ui/Field.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { cn } from "../../lib/cn.ts";
 import { DESKTOP_QUERY, useMediaQuery } from "../../lib/use-media-query.ts";
-import { DEFAULT_GAME, GAME_FILTERS } from "./api.ts";
+import { GAME_FILTERS, LEADERBOARD_SIZE } from "./api.ts";
 import { DesktopPodium, MobilePodium, PodiumSkeleton } from "./Podium.tsx";
-import { SCORE_LABEL, gameName } from "./rank-styles.ts";
+import { SCORE_LABEL } from "./rank-styles.ts";
 import { RankingCards, RankingTable, RankingsSkeleton } from "./Rankings.tsx";
 import { useLeaderboard, type LeaderboardController } from "./use-leaderboard.ts";
 import { DesktopYourPosition, MobileYourPosition } from "./YourPosition.tsx";
@@ -18,12 +18,11 @@ import { DesktopYourPosition, MobileYourPosition } from "./YourPosition.tsx";
 // Page 10: Global Leaderboard. Desktop = 10D, mobile = 10M (no hero, no table: stacked
 // cards; compact podium; search behind an icon).
 //
-// Hidden because the contract has no field or endpoint for them (README §14 only has
-// GET /leaderboard?game=):
+// Hidden because the contract has no field or endpoint for them (the only parameter is
+// GET /leaderboard?game=, and rows carry region but there is no region filter):
 // - Region filter (10D Global/Africa/Kenya/Europe/North America; 10M Kenya/Global pills).
 // - Period filter (10D All Time/This Month/This Week).
 // - Trend column and "+N this week" (10D table, your-position card, 10M cards).
-// - "All Games" pill: the API ranks one game per request (?game=<slug>).
 // - Hero stats: Ranked Gamers, Active Games, and "Live Sync / Updated 5m ago".
 //   Animation note (docs/ui-audit.md §5c): "Live Sync" is described but never implemented
 //   in the HTML; there is no live-update channel, so the Refresh button refetches instead.
@@ -199,26 +198,6 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
     );
   }
 
-  if (board.status === "unknown-game") {
-    // The API answers 400 for a slug it doesn't know (config/games.ts is UNCONFIRMED).
-    return (
-      <Card>
-        <StatusPanel
-          tone="warning"
-          title={`Rankings for ${gameName(board.game)} aren't available`}
-          description="This game isn't on the leaderboard yet. Pick another game."
-          actions={
-            board.game !== DEFAULT_GAME && (
-              <Button variant="secondary" size="sm" onClick={board.clearFilters}>
-                Show {gameName(DEFAULT_GAME)}
-              </Button>
-            )
-          }
-        />
-      </Card>
-    );
-  }
-
   if (board.status === "error") {
     return (
       <Card>
@@ -237,9 +216,9 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
   }
 
   const rankingProps = {
-    rows: board.visibleRows,
-    meId: board.me?.userId ?? null,
-    totalRows: board.rows.length,
+    rows: board.visibleEntries,
+    meId: board.meId,
+    totalRows: board.entries.length,
     searching: board.search.trim() !== "",
     onClearFilters: board.clearFilters,
   };
@@ -249,8 +228,8 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
       <>
         <DesktopPodium entries={board.podium} />
         <RankingTable {...rankingProps} />
-        <div className={cn("grid gap-6", board.signedIn && "grid-cols-2")}>
-          {board.signedIn && <DesktopYourPosition me={board.me} />}
+        <div className={cn("grid gap-6", board.isGamer && "grid-cols-2")}>
+          {board.isGamer && <DesktopYourPosition me={board.me} game={board.game} />}
           <HowRankingsWork />
         </div>
       </>
@@ -260,7 +239,7 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
   return (
     <>
       <MobilePodium entries={board.podium} />
-      {board.signedIn && <MobileYourPosition me={board.me} />}
+      {board.isGamer && <MobileYourPosition me={board.me} game={board.game} />}
       <RankingCards {...rankingProps} />
     </>
   );
@@ -275,8 +254,8 @@ function HowRankingsWork() {
         How rankings work
       </h2>
       <p className="text-12 text-fg-secondary">
-        Play2Pro rankings are generated using the platform's configured ranking methodology. Positions reflect
-        available performance and community data signals:
+        Play2Pro rankings are generated using the platform's configured ranking methodology. The top{" "}
+        {LEADERBOARD_SIZE} gamers are shown, and positions reflect available performance and community data signals:
       </p>
       <div className="mt-1 flex flex-wrap gap-2">
         <Badge tone="blue">{SCORE_LABEL}</Badge>

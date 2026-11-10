@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
-import { CircleAlert, Film, Info, Users } from "lucide-react";
+import { CircleAlert, Crosshair, Film, Info, Users } from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/layout/PageHeader.tsx";
 import { ROUTES } from "../../components/layout/nav-config.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { Button, ButtonLink } from "../../components/ui/Button.tsx";
 import { Card } from "../../components/ui/Card.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
+import { useSession } from "../../lib/session.ts";
 import { DESKTOP_QUERY, useMediaQuery } from "../../lib/use-media-query.ts";
+import { ROLE } from "../../types/api.ts";
 import { HouseAdCard } from "./HouseAdCard.tsx";
 import { ReelCard, ReelFrame, ReelOverlay, type FeedVariant } from "./ReelCard.tsx";
 import { useFeed, type FeedController } from "./use-feed.ts";
@@ -25,6 +27,7 @@ import { DesktopVotePanel, MobileVotePanel } from "./VotePanel.tsx";
 export default function FeedPage() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const feed = useFeed();
+  const session = useSession();
 
   return (
     <>
@@ -46,6 +49,15 @@ export default function FeedPage() {
           isDesktop
             ? "Watch gameplay clips. Discover emerging talent. Make your community vote count."
             : undefined
+        }
+        actions={
+          // Mobile entry point for gamers: Bounties isn't a bottom tab (decision 7).
+          !isDesktop && session?.role === ROLE.GAMER ? (
+            <ButtonLink to={ROUTES.bounties} variant="secondary" size="sm">
+              <Crosshair className="size-3.5" aria-hidden="true" />
+              Bounties
+            </ButtonLink>
+          ) : undefined
         }
       />
       <PageContainer>

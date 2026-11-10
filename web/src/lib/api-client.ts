@@ -1,9 +1,10 @@
 // The only module that talks to the Play2Pro API.
 // - Adds `Authorization: Bearer <jwt>` when signed in (the token lives in lib/session.ts).
 // - Turns every failure into an ApiError using README's { error: { code, message } } shape.
-// - With env.useMocks, requests are answered by src/mocks instead of the network.
+// - With env.useMocks, requests are answered by src/mocks instead of the network, except
+//   paths listed in VITE_REAL_API (hybrid mode, config/env.ts).
 
-import { env } from "../config/env.ts";
+import { env, usesRealApi } from "../config/env.ts";
 import { mockRequest } from "../mocks/index.ts";
 import { API_ERROR_CODE } from "../types/api.ts";
 import { ApiError, toApiError } from "./api-error.ts";
@@ -40,7 +41,7 @@ export async function apiRequest<T>(
   const { body, query, signal, auth = true } = options;
   const url = buildPath(path, query);
 
-  if (env.useMocks) {
+  if (!usesRealApi(path)) {
     return mockRequest<T>(method, url, body, signal);
   }
 

@@ -16,6 +16,7 @@ import { DonateButton } from "../payments/DonateButton.tsx";
 import { AiSummaryReview } from "./AiSummaryReview.tsx";
 import { EvidenceSection } from "./EvidenceClips.tsx";
 import { MobileOwnerIdentity, MobileViewerIdentity, OwnerIdentityCard, ProfileHeaderCard } from "./IdentityCards.tsx";
+import { RadScoreCard } from "./RadScoreCard.tsx";
 import { DesktopMetrics, MobileMetrics } from "./MetricCards.tsx";
 import { MobilePassportCard, PassportCard, StrengthsCard, TrustBar } from "./PassportCards.tsx";
 import { IncompleteNotice } from "./ProfileParts.tsx";
@@ -137,6 +138,7 @@ function viewerModel({ controller, profile, kind }: ViewerProps) {
   const clips = access.clips ? (dashboard?.clips ?? null) : null;
   return {
     access,
+    dashboard,
     summary,
     clips,
     metrics: buildMetrics(profile, dashboard),
@@ -164,6 +166,7 @@ function DesktopViewerProfile(props: ViewerProps) {
       )}
       <ProfileHeaderCard profile={profile} />
       <DesktopMetrics metrics={model.metrics} />
+      <RadScoreCard dashboard={model.dashboard} />
       <div className={cn("grid gap-6", model.hasStrengths ? "grid-cols-[1.2fr_1fr]" : "grid-cols-1")}>
         <PassportCard summary={model.summary} missing={model.missing} />
         {model.summary && model.hasStrengths && <StrengthsCard summary={model.summary} />}
@@ -200,6 +203,7 @@ function MobileViewerProfile(props: ViewerProps) {
             action={model.showDonate && <DonateButton profile={profile} layout="mobile" />}
           />
           <MobileMetrics metrics={model.metrics} />
+          <RadScoreCard dashboard={model.dashboard} compact />
           <MobilePassportCard summary={model.summary} missing={model.missing} />
           {model.access.clips && (
             <EvidenceSection

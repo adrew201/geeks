@@ -1,13 +1,20 @@
 // Mock API used when env.useMocks is true. Add a route here when a page needs one.
 // Unknown routes reject with NOT_FOUND so missing mocks are obvious.
 
-import { isGameSlug } from "../config/games.ts";
 import { ApiError } from "../lib/api-error.ts";
 import { fromApiRole, toApiRole } from "../lib/role-adapter.ts";
-import { getSession } from "../lib/session.ts";
+import { getSession as getRealSession, type Session } from "../lib/session.ts";
 import {
   AI_SUMMARY_STATUS,
   API_ERROR_CODE,
+  BOUNTY_STATUS,
+  SUBMISSION_STATUS,
+  type ApiBounty,
+  type ApiBountySubmission,
+  type ConfirmBountyRequest,
+  type CreateBountyRequest,
+  type CreateBountyResponse,
+  type CreateSubmissionRequest,
   PROFILE_VISIBILITY,
   ROLE,
   TIER,
@@ -25,19 +32,58 @@ import {
   type SignupRequest,
   type UpdateGamerProfileRequest,
   type User,
+  type CoachMatch,
+  WALLET_ENTRY_KIND,
+  type WithdrawRequest,
 } from "../types/api.ts";
 import {
   mockBounties,
   mockClips,
+  mockCoachMatches,
+  mockRadScoreHistory,
   mockGamers,
   mockHouseAd,
-  mockLeaderboardRows,
+  mockLeaderboardEntries,
   mockAccounts,
   mockUser,
   mockWalletEntries,
 } from "./fixtures.ts";
 
 const MOCK_LATENCY_MS = 300;
+
+/* ------------------------------ hybrid personas ------------------------------ */
+
+/**
+ * Hybrid mode (VITE_REAL_API, config/env.ts): login is real, so the session holds a real
+ * user id the fixtures don't know. The mocks then treat that user as the demo persona for
+ * their role, translating ids at this boundary: the real id in a request becomes the
+ * persona's id, and the persona's id in a response becomes the real id. So /passport,
+ * /dashboard, /wallet and "your bounties" still recognise you as the owner.
+ * With mock logins (fixture ids) nothing is translated.
+ */
+const PERSONA_BY_ROLE: Record<Session["role"], string> = {
+  GAMER: mockUser.id,
+  COACH: "usr_coach_1",
+  SPONSOR: "usr_sponsor_1",
+};
+
+function personaLink(): { realId: string; personaId: string } | null {
+  const session = getRealSession();
+  if (!session || mockAccounts.some((account) => account.id === session.userId)) return null;
+  return { realId: session.userId, personaId: PERSONA_BY_ROLE[session.role] };
+}
+
+/** The session as the mock handlers see it: the persona's id in place of a real one. */
+function getSession(): Session | null {
+  const session = getRealSession();
+  const link = personaLink();
+  return session && link ? { ...session, userId: link.personaId } : session;
+}
+
+function replaceIds(value: unknown, from: string, to: string): unknown {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value).split(JSON.stringify(from)).join(JSON.stringify(to)));
+}
 
 interface MockContext {
   params: Record<string, string>;
@@ -79,11 +125,10 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  * /login?mock=short-session or /gamers/gmr_shadowviper?mock=profile-private. Mock mode only.
  *
  * Leaderboard, signed in as gamer@play2pro.test (ShadowViper, Valorant):
- *   default                     Valorant shows `me` (rank 2, inside the rows); COD Mobile and
- *                               EA SPORTS FC 25 return me=null (no clips in that game)
- *   ?mock=leaderboard-me-outside `me` is set but the user's row is not in `rows`
- *   ?mock=leaderboard-no-me      me=null for every game (as for coaches and sponsors)
- *   ?mock=leaderboard-bad-game   400 for every slug (unknown-game state)
+ *   default                      All Games and Valorant include ShadowViper (highlighted, your
+ *                                position shown); COD Mobile and EA SPORTS FC 25 don't (not in
+ *                                the top 50); EA SPORTS FC 25 is empty (no gamer plays it)
+ *   ?mock=leaderboard-me-outside the signed-in gamer is left out of every board (below the top 50)
  *   ?mock=leaderboard-fail       500
  *
  * Donations (any signed-in user, on a Gamer ID that isn't yours, then /pay/return):
@@ -94,6 +139,29 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  *   ?mock=order-confirmed / order-failed / order-cancelled / order-expired  that status at once
  * The scenario carries over from the profile to /pay/return (approval is simulated in-app).
  * gmr_vortex has isVerifiedAdult=false, so its donate button is disabled.
+ *
+ * Bounties (sponsor@play2pro.test owns bty_1 and bty_2; gamer@play2pro.test enters):
+ *   default             entries get an AI result ~5s after submitting; a confirmed winner is
+ *                       paid out (status COMPLETED) ~6s after Confirm; a new bounty opens once
+ *                       its /pay/return order completes
+ *   ?mock=bounties-empty  GET /bounties returns []
+ *   ?mock=bounties-fail   GET /bounties answers 500
+ *   ?mock=bounty-expired  GET /bounties/:id reports EXPIRED_VOIDED (schema alias), e.g. /bounties/bty_1?mock=bounty-expired
+ *   ?mock=submit-fail     POST /bounties/:id/submissions answers 500
+ *   ?mock=ai-pending      every entry stays in AI checking
+ *   ?mock=ai-ready        new entries get their AI result at once
+ *   ?mock=confirm-fail    POST /bounties/:id/confirm answers 502 PAYPAL_ERROR
+ * Mock-only assumption: POST /bounties rejects deadlines more than 72h away (README §9.5 cap).
+ *
+ * Dashboards (gamer@play2pro.test on /dashboard and /wallet; coach@play2pro.test on /discover):
+ *   default               ShadowViper has 10 weekly rad score points and a 19-entry ledger
+ *                         covering every WalletEntry kind; a withdrawal adds a WITHDRAWAL entry
+ *   ?mock=dashboard-fail  GET /gamers/:id/dashboard answers 500 (also on the profile)
+ *   ?mock=wallet-empty    the owner's ledger is empty (08D state C)
+ *   ?mock=withdraw-ineligible  POST /wallet/withdraw answers 403 NOT_VERIFIED_ADULT
+ *   ?mock=withdraw-fail   POST /wallet/withdraw answers 502 PAYPAL_ERROR
+ *   ?mock=matches-empty / matches-fail  GET /coach/matches returns [] / answers 500
+ *   ?mock=leaderboard-fail also fails the Discover talent grid (same endpoint)
  */
 type MockScenario =
   | "empty"
@@ -102,8 +170,6 @@ type MockScenario =
   | "vote-404"
   | "leaderboard-fail"
   | "leaderboard-me-outside"
-  | "leaderboard-no-me"
-  | "leaderboard-bad-game"
   | "auth-fail"
   | "short-session"
   | "profile-fail"
@@ -120,7 +186,19 @@ type MockScenario =
   | "order-confirmed"
   | "order-failed"
   | "order-cancelled"
-  | "order-expired";
+  | "order-expired"
+  | "bounties-empty"
+  | "bounties-fail"
+  | "bounty-expired"
+  | "submit-fail"
+  | "ai-pending"
+  | "ai-ready"
+  | "confirm-fail"
+  | "wallet-empty"
+  | "withdraw-ineligible"
+  | "withdraw-fail"
+  | "matches-empty"
+  | "matches-fail";
 
 function scenario(): MockScenario | null {
   if (typeof window === "undefined") return null;
@@ -248,32 +326,22 @@ route("POST", "/api/v1/clips/:id/vote", ({ params }) => {
   return undefined;
 });
 
+// Fabiola's contract: public, optional `game` display name matched exactly, top 50 by rad
+// score then Elo, ranks 1..n within the filtered list. An unknown game returns no entries.
 route("GET", "/api/v1/leaderboard", ({ query }): LeaderboardResponse => {
   if (scenario() === "leaderboard-fail") serverError();
-  const game = query.get("game") ?? "";
-  if (scenario() === "leaderboard-bad-game" || !isGameSlug(game)) {
-    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, `Unknown game "${game}".`);
-  }
-  if (scenario() === "empty") return { game, rows: [], me: null };
+  const game = query.get("game") || null;
+  if (scenario() === "empty") return { game, entries: [] };
 
-  // Ranks are per game.
-  const rows = mockLeaderboardRows
-    .filter((row) => row.game === game)
-    .sort((a, b) => b.radScore - a.radScore)
-    .map((row, index) => ({ ...row, rank: index + 1 }));
-
-  // `me` is the caller's position; null for coaches, sponsors and gamers with no clips here.
   const session = getSession();
-  const mine = session?.role === ROLE.GAMER ? rows.find((row) => row.userId === session.userId) : undefined;
-  const me =
-    mine && scenario() !== "leaderboard-no-me"
-      ? { rank: mine.rank, userId: mine.userId, radScore: mine.radScore, game }
-      : null;
-
-  if (me && scenario() === "leaderboard-me-outside") {
-    return { game, rows: rows.filter((row) => row.userId !== me.userId), me };
-  }
-  return { game, rows, me };
+  const entries = mockLeaderboardEntries
+    .filter(({ games }) => game === null || games.includes(game))
+    .map(({ entry }) => entry)
+    .filter((entry) => !(scenario() === "leaderboard-me-outside" && entry.gamerId === session?.userId))
+    .sort((a, b) => b.radScore - a.radScore || b.currentElo - a.currentElo)
+    .slice(0, 50)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  return { game, entries };
 });
 
 /* ------------------------------ gamer profile ------------------------------ */
@@ -334,17 +402,14 @@ route("GET", "/api/v1/gamers/:id/dashboard", ({ params }): GamerDashboard => {
   }
   const summary: GamerDashboard = {
     profile,
-    radScoreHistory: [
-      { date: "2026-11-07T00:00:00.000Z", radScore: profile.radScore - 260 },
-      { date: "2026-11-08T00:00:00.000Z", radScore: profile.radScore - 120 },
-      { date: "2026-11-09T00:00:00.000Z", radScore: profile.radScore },
-    ],
+    radScoreHistory: mockRadScoreHistory(profile.radScore),
   };
   if (!owner && session.role === ROLE.SPONSOR) return summary;
   const clips =
     scenario() === "profile-no-clips" ? [] : mockClips.filter((clip) => clip.ownerId === profile.id);
   if (!owner) return { ...summary, clips };
-  const walletEntries = mockWalletEntries.filter((entry) => entry.userId === profile.userId);
+  const walletEntries =
+    scenario() === "wallet-empty" ? [] : mockWalletEntries.filter((entry) => entry.userId === profile.userId);
   return {
     ...summary,
     clips,
@@ -366,7 +431,52 @@ route("PATCH", "/api/v1/gamers/:id", ({ params, body }): GamerProfile => {
   return gamer;
 });
 
-route("GET", "/api/v1/bounties", () => mockBounties);
+/* ------------------------------ wallet ------------------------------ */
+
+// README §14: owner + verified adult. §15.4: writes a negative WITHDRAWAL entry at once; the
+// payout itself is assumed to succeed in the mock (no REVERSAL is written).
+route("POST", "/api/v1/wallet/withdraw", ({ body }) => {
+  const session = requireSession();
+  if (scenario() === "withdraw-fail") {
+    throw new ApiError(502, API_ERROR_CODE.PAYPAL_ERROR, "PayPal Payouts is unavailable. Try again in a minute.");
+  }
+  const account = mockAccounts.find((candidate) => candidate.id === session.userId);
+  const gamer = mockGamers.find((profile) => profile.userId === session.userId);
+  if (scenario() === "withdraw-ineligible" || account?.isVerifiedAdult === false || gamer?.isVerifiedAdult === false) {
+    throw new ApiError(403, API_ERROR_CODE.NOT_VERIFIED_ADULT, "A verified adult PayPal account is required to withdraw.");
+  }
+  const { amount } = (body ?? {}) as Partial<WithdrawRequest>;
+  const balance = mockWalletEntries
+    .filter((entry) => entry.userId === session.userId)
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  if (!Number.isInteger(amount) || (amount ?? 0) < 100) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Amount must be whole cents, at least 100.");
+  }
+  if ((amount ?? 0) > balance) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Amount is more than your balance.");
+  }
+  const id = `wal_new_${Date.now().toString(36)}`;
+  mockWalletEntries.push({
+    id,
+    userId: session.userId,
+    amount: -(amount ?? 0),
+    kind: WALLET_ENTRY_KIND.WITHDRAWAL,
+    paypalRef: `PO-${Date.now().toString(36).toUpperCase()}`,
+    createdAt: new Date().toISOString(),
+  });
+  return undefined;
+});
+
+/* ------------------------------ coach ------------------------------ */
+
+// README §14: COACH only. Shape UNCONFIRMED (CoachMatch in types/api.ts).
+route("GET", "/api/v1/coach/matches", (): CoachMatch[] => {
+  const session = requireSession();
+  if (session.role !== ROLE.COACH) throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Only coaches get AI matches.");
+  if (scenario() === "matches-fail") serverError();
+  if (scenario() === "matches-empty") return [];
+  return mockCoachMatches;
+});
 
 /* ------------------------------ payments ------------------------------ */
 
@@ -437,14 +547,181 @@ route("GET", "/api/v1/orders/:id", ({ params }): PaymentOrder => {
     };
     mockOrders.set(params.id, entry);
   }
-  const forced = ORDER_SCENARIO_STATUS[scenario() as MockScenario];
-  if (forced) return { ...entry.order, status: forced };
   entry.firstCheckedAt ??= Date.now();
   const status =
-    Date.now() - entry.firstCheckedAt >= MOCK_CONFIRM_AFTER_MS
+    ORDER_SCENARIO_STATUS[scenario() as MockScenario] ??
+    (Date.now() - entry.firstCheckedAt >= MOCK_CONFIRM_AFTER_MS
       ? PAYMENT_ORDER_STATUS.COMPLETED
-      : PAYMENT_ORDER_STATUS.APPROVED;
+      : PAYMENT_ORDER_STATUS.APPROVED);
+  // Bounty funding: the verified authorization opens the bounty (README §15.3).
+  const bountyId = mockBountyOrders.get(params.id);
+  if (bountyId && status === PAYMENT_ORDER_STATUS.COMPLETED) findBounty(bountyId).status = BOUNTY_STATUS.OPEN;
   return { ...entry.order, status };
+});
+
+/* ------------------------------ bounties ------------------------------ */
+
+const MOCK_AI_AFTER_MS = 5_000;
+const MOCK_PAYOUT_AFTER_MS = 6_000;
+const MOCK_DEADLINE_CAP_MS = 72 * 3_600_000;
+/** Entry id → when its AI result appears (entries made in this tab). */
+const mockAiReadyAt = new Map<string, number>();
+/** Bounty id → when the backend "finishes" capture + payout after Confirm. */
+const mockPayoutAt = new Map<string, number>();
+/** Order id → bounty it funds. */
+const mockBountyOrders = new Map<string, string>();
+
+const OPEN_STATUSES: string[] = [BOUNTY_STATUS.OPEN, "OPEN_ESCROWED", BOUNTY_STATUS.VERIFYING];
+
+function requireSession(): Session {
+  const session = getSession();
+  if (!session) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  return session;
+}
+
+function findBounty(id: string): ApiBounty {
+  return mockBounties.find((bounty) => bounty.id === id) ?? notFound("Bounty not found.");
+}
+
+function requireCreator(bounty: ApiBounty): void {
+  if (requireSession().userId !== bounty.creatorId) {
+    throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Only the bounty's creator can do this.");
+  }
+}
+
+/** What GET returns for an entry right now: hides the AI result until it's "ready". */
+function entryView(entry: ApiBountySubmission): ApiBountySubmission {
+  const readyAt = mockAiReadyAt.get(entry.id);
+  const pending =
+    scenario() === "ai-pending" ||
+    (scenario() !== "ai-ready" && readyAt !== undefined && Date.now() < readyAt);
+  if (!pending || entry.confirmed || entry.status === SUBMISSION_STATUS.DECLINED) return entry;
+  return { ...entry, aiVerdict: null, status: SUBMISSION_STATUS.SUBMITTED, aiVerificationStatus: "PROCESSING" };
+}
+
+route("GET", "/api/v1/bounties", (): ApiBounty[] => {
+  if (scenario() === "bounties-fail") serverError();
+  if (scenario() === "bounties-empty") return [];
+  // README §14: open bounties only. Entries are not part of the list.
+  return mockBounties
+    .filter((bounty) => OPEN_STATUSES.includes(bounty.status))
+    .map((bounty) => ({ ...bounty, submissions: undefined }));
+});
+
+// UNCONFIRMED endpoint. The creator sees every entry; anyone else only their own.
+route("GET", "/api/v1/bounties/:id", ({ params }): ApiBounty => {
+  const session = requireSession();
+  const bounty = findBounty(params.id);
+  const payoutAt = mockPayoutAt.get(bounty.id);
+  if (payoutAt !== undefined && Date.now() >= payoutAt) bounty.status = BOUNTY_STATUS.COMPLETED;
+  const entries = (bounty.submissions ?? [])
+    .filter((entry) => session.userId === bounty.creatorId || entry.gamerId === session.userId)
+    .map(entryView);
+  const status = scenario() === "bounty-expired" ? "EXPIRED_VOIDED" : bounty.status;
+  return { ...bounty, status, submissions: entries };
+});
+
+// README §14: verified adult. Sponsor-only in this app (decision 7).
+route("POST", "/api/v1/bounties", ({ body }): CreateBountyResponse => {
+  const session = requireSession();
+  if (session.role !== ROLE.SPONSOR) throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Only sponsors can create bounties.");
+  const request = (body ?? {}) as Partial<CreateBountyRequest>;
+  const deadline = Date.parse(String(request.deadline));
+  if (!request.title || !request.task || !Number.isInteger(request.reward) || Number.isNaN(deadline)) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Title, task, reward and deadline are required.");
+  }
+  if (deadline - Date.now() > MOCK_DEADLINE_CAP_MS) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "The deadline must be within 72 hours.");
+  }
+  const id = `bty_new_${mockBounties.length + 1}`;
+  mockBounties.push({
+    id,
+    creatorId: session.userId,
+    type: request.type,
+    title: request.title,
+    task: request.task,
+    game: request.game,
+    reward: request.reward,
+    deadline: new Date(deadline).toISOString(),
+    status: BOUNTY_STATUS.AWAITING_APPROVAL,
+    submissions: [],
+  });
+  const orderId = `MOCK-ORDER-${mockOrders.size + 1}-${Date.now().toString(36).toUpperCase()}`;
+  mockOrders.set(orderId, {
+    order: {
+      orderId,
+      status: PAYMENT_ORDER_STATUS.CREATED,
+      amount: request.reward,
+      purpose: PAYMENT_PURPOSE.BOUNTY,
+      createdAt: new Date().toISOString(),
+    },
+  });
+  mockBountyOrders.set(orderId, id);
+  return { approvalUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`, orderId, bountyId: id };
+});
+
+// README §14: GAMER + verified adult. Body UNCONFIRMED ({ clipUrl, note? }).
+route("POST", "/api/v1/bounties/:id/submissions", ({ params, body }): ApiBountySubmission => {
+  const session = requireSession();
+  if (scenario() === "submit-fail") serverError();
+  if (session.role !== ROLE.GAMER) throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Only gamers can enter bounties.");
+  const bounty = findBounty(params.id);
+  if (!OPEN_STATUSES.includes(bounty.status)) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "This bounty isn't taking entries.");
+  }
+  const request = (body ?? {}) as Partial<CreateSubmissionRequest>;
+  if (!request.clipUrl?.startsWith("https://")) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Send a valid https clip link.");
+  }
+  bounty.submissions ??= [];
+  if (bounty.submissions.some((entry) => entry.gamerId === session.userId)) {
+    throw new ApiError(409, API_ERROR_CODE.VALIDATION_ERROR, "You already entered this bounty.");
+  }
+  const gamer = mockGamers.find((profile) => profile.userId === session.userId);
+  const entry: ApiBountySubmission = {
+    id: `sub_new_${Date.now().toString(36)}`,
+    gamerId: session.userId,
+    gamerTag: gamer?.gamerTags[0],
+    clipUrl: request.clipUrl,
+    note: request.note ?? null,
+    aiVerdict: {
+      pass: true,
+      confidence: 0.82,
+      matchesGame: true,
+      taskCompleted: true,
+      looksReused: false,
+      reason: "The clip appears to show the task being completed in one take.",
+    },
+    confirmed: false,
+  };
+  bounty.submissions.push(entry);
+  mockAiReadyAt.set(entry.id, Date.now() + MOCK_AI_AFTER_MS);
+  return entryView(entry);
+});
+
+// README §14: bounty creator (or coach). Body UNCONFIRMED. Capture + payout finish later.
+route("POST", "/api/v1/bounties/:id/confirm", ({ params, body }) => {
+  const bounty = findBounty(params.id);
+  requireCreator(bounty);
+  if (scenario() === "confirm-fail") {
+    throw new ApiError(502, API_ERROR_CODE.PAYPAL_ERROR, "PayPal couldn't capture the held funds. Try again.");
+  }
+  const { submissionId } = (body ?? {}) as Partial<ConfirmBountyRequest>;
+  const entry = bounty.submissions?.find((candidate) => candidate.id === submissionId) ?? notFound("Entry not found.");
+  entry.confirmed = true;
+  entry.status = SUBMISSION_STATUS.WINNER_APPROVED;
+  bounty.status = BOUNTY_STATUS.VERIFYING;
+  mockPayoutAt.set(bounty.id, Date.now() + MOCK_PAYOUT_AFTER_MS);
+  return undefined;
+});
+
+// UNCONFIRMED endpoint.
+route("POST", "/api/v1/bounties/:id/submissions/:submissionId/reject", ({ params }) => {
+  const bounty = findBounty(params.id);
+  requireCreator(bounty);
+  const entry = bounty.submissions?.find((candidate) => candidate.id === params.submissionId) ?? notFound("Entry not found.");
+  entry.status = SUBMISSION_STATUS.DECLINED;
+  return undefined;
 });
 
 route("GET", "/api/v1/ads/next", () => mockHouseAd);
@@ -470,7 +747,15 @@ export async function mockRequest<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   await delay(MOCK_LATENCY_MS, signal);
-  const [path = "", search = ""] = url.split("?");
+  const link = personaLink();
+  const [rawPath = "", search = ""] = url.split("?");
+  const path = link
+    ? rawPath
+        .split("/")
+        .map((segment) => (decodeURIComponent(segment) === link.realId ? encodeURIComponent(link.personaId) : segment))
+        .join("/")
+    : rawPath;
+  if (link) body = replaceIds(body, link.realId, link.personaId);
   for (const candidate of routes) {
     if (candidate.method !== method) continue;
     const match = candidate.pattern.exec(path);
@@ -479,7 +764,8 @@ export async function mockRequest<T>(
       candidate.keys.map((key, index) => [key, decodeURIComponent(match[index + 1] ?? "")]),
     );
     const result = candidate.handler({ params, query: new URLSearchParams(search), body });
-    return (result === undefined ? undefined : structuredClone(result)) as T;
+    if (result === undefined) return undefined as T;
+    return (link ? replaceIds(result, link.personaId, link.realId) : structuredClone(result)) as T;
   }
   return notFound(`No mock for ${method} ${path}. Add one in src/mocks/index.ts.`);
 }

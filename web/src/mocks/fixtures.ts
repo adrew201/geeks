@@ -8,17 +8,18 @@ import {
   CLIP_STATUS,
   PROFILE_VISIBILITY,
   ROLE,
+  SUBMISSION_STATUS,
   TIER,
   WALLET_ENTRY_KIND,
-  type Bounty,
+  type ApiBounty,
+  type CoachMatch,
   type Clip,
   type GamerProfile,
   type HouseAd,
-  type LeaderboardRow,
+  type LeaderboardEntry,
   type User,
   type WalletEntry,
 } from "../types/api.ts";
-import { GAMES, GAME_SLUGS, type GameSlug } from "../config/games.ts";
 
 export const mockUser: User = {
   id: "usr_gamer_1",
@@ -130,6 +131,31 @@ export const mockClips: Clip[] = [
     eloRating: 1540,
     status: CLIP_STATUS.ANALYSED,
   },
+  // Two more ShadowViper clips for the /dashboard pipeline (the feed hides your own clips).
+  {
+    id: "clp_6",
+    ownerId: "gmr_shadowviper",
+    url: "https://example.com/clips/clp_6",
+    description: "Operator ace on Icebox A site hold",
+    game: "Valorant",
+    tags: ["ace", "operator", "hold"],
+    stats: { kills: 5, headshots: 4 },
+    aiQualityScore: 88,
+    eloRating: 1585,
+    status: CLIP_STATUS.ANALYSED,
+  },
+  {
+    id: "clp_7",
+    ownerId: "gmr_shadowviper",
+    url: "https://example.com/clips/clp_7",
+    description: "Ranked match highlight: 4k retake on Lotus",
+    game: "Valorant",
+    tags: [],
+    stats: null,
+    aiQualityScore: null,
+    eloRating: 1500,
+    status: CLIP_STATUS.PENDING,
+  },
   {
     id: "clp_2",
     ownerId: "gmr_phantomx",
@@ -188,67 +214,181 @@ export const mockHouseAd: HouseAd = {
   ctaUrl: "/upgrade",
 };
 
-/** config/games.ts slug for a fixture's display-name game (null when the game has no slug yet). */
-function gameSlugFor(name: string | undefined): GameSlug | null {
-  return GAME_SLUGS.find((slug) => GAMES[slug].name === name) ?? null;
-}
+/** Display names for the leaderboard fixtures (the API's `displayName` comes from User). */
+const DISPLAY_NAMES: Record<string, string> = {
+  usr_gamer_1: "Brian Otieno",
+  usr_gamer_2: "Kevin Mwangi",
+  usr_gamer_3: "Amina Hassan",
+  usr_gamer_4: "Daniel Kiprop",
+  usr_gamer_5: "Kwame Mensah",
+};
 
 /**
- * Unranked leaderboard rows, one per gamer for their first game. Gamers whose game has no
- * confirmed slug (Vortex / Fortnite) are left out. The mock ranks them per game.
+ * Unranked leaderboard entries plus the games each gamer is listed under (primary first, as
+ * GamerProfile.primaryGame / secondaryGames). The mock filters, sorts and ranks them.
+ * PhantomX has no avatar or region, to exercise the nulls.
  */
-export const mockLeaderboardRows: LeaderboardRow[] = mockGamers.flatMap((gamer) => {
-  const game = gameSlugFor(gamer.games[0]);
-  if (!game) return [];
-  return [
-    { rank: 0, userId: gamer.userId, gamerTag: gamer.gamerTags[0] ?? gamer.id, radScore: gamer.radScore, game },
-  ];
-});
+export const mockLeaderboardEntries: Array<{ entry: LeaderboardEntry; games: string[] }> = mockGamers.map(
+  (gamer, index) => ({
+    games: gamer.games,
+    entry: {
+      rank: 0,
+      gamerId: gamer.userId,
+      gamerTag: gamer.gamerTags[0] ?? gamer.id,
+      displayName: DISPLAY_NAMES[gamer.userId] ?? gamer.gamerTags[0] ?? gamer.id,
+      avatarUrl: null,
+      primaryGame: gamer.games[0] ?? "Valorant",
+      region: gamer.id === "gmr_phantomx" ? null : gamer.region,
+      radScore: gamer.radScore,
+      currentElo: 1500 - index * 25,
+    },
+  }),
+);
 
-export const mockBounties: Bounty[] = [
+/**
+ * Bounties in both API shapes on purpose, so features/bounties/bounty-status.ts is exercised:
+ * bty_1 uses README names (task, reward in cents, OPEN); bty_2 uses Prisma names (title,
+ * taskDescription, rewardAmount in dollars, OPEN_ESCROWED) and has two entries, one with a README
+ * aiVerdict and one with the schema's score and notes. Both belong to sponsor@play2pro.test.
+ * Deadlines are relative so the demo never shows them as past.
+ */
+const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
+
+export const mockBounties: ApiBounty[] = [
   {
     id: "bty_1",
     creatorId: "usr_sponsor_1",
     type: BOUNTY_TYPE.CHALLENGE,
     task: "Win a 1v3 clutch round in Valorant ranked",
+    game: "valorant",
     reward: 5000,
-    deadline: "2026-11-11T18:00:00.000Z",
+    deadline: hoursFromNow(20),
     status: BOUNTY_STATUS.OPEN,
+    submissions: [],
   },
   {
     id: "bty_2",
     creatorId: "usr_sponsor_1",
-    type: BOUNTY_TYPE.DARE,
-    task: "Sheriff-only ace in a competitive match",
-    reward: 2500,
-    deadline: "2026-11-11T20:00:00.000Z",
-    status: BOUNTY_STATUS.VERIFYING,
+    bountyType: BOUNTY_TYPE.DARE,
+    title: "Sheriff-only ace",
+    taskDescription: "Get an ace using only the Sheriff in a competitive match. Show the full round.",
+    game: "valorant",
+    rewardAmount: "25.00",
+    deadline: hoursFromNow(30),
+    status: "OPEN_ESCROWED",
+    submissions: [
+      {
+        id: "sub_1",
+        gamerId: "usr_gamer_2",
+        gamerTag: "PhantomX",
+        clipUrl: "https://www.youtube.com/watch?v=play2pro-demo-1",
+        note: "Round 9, ace on A site.",
+        aiVerdict: {
+          pass: true,
+          confidence: 0.86,
+          matchesGame: true,
+          taskCompleted: true,
+          looksReused: false,
+          reason: "Clip shows five Sheriff kills in one Valorant round.",
+        },
+        confirmed: false,
+      },
+      {
+        id: "sub_2",
+        gamerId: "usr_gamer_3",
+        gamerTag: "NovaStrike",
+        clipUrl: "https://www.twitch.tv/videos/play2pro-demo-2",
+        status: SUBMISSION_STATUS.AI_REJECTED,
+        aiVerificationStatus: "COMPLETED",
+        aiConfidenceScore: 0.71,
+        aiReviewNotes: "Two of the five kills use the Vandal.",
+      },
+    ],
   },
 ];
 
-export const mockWalletEntries: WalletEntry[] = [
+/**
+ * ShadowViper's ledger across ~4 months, covering every kind (decision 3): donations with their
+ * fee, bounty rewards, ad share, a paid withdrawal, and a failed payout reversed (README §13).
+ * Balance = sum = $142.30. Dates are relative to now so the 30-day filter always has rows.
+ */
+const daysAgo = (days: number, hour = 12) => {
+  const date = new Date(Date.now() - days * 86_400_000);
+  date.setUTCHours(hour, 0, 0, 0);
+  return date.toISOString();
+};
+
+type LedgerRow = [days: number, amount: number, kind: WalletEntry["kind"], ref: string];
+
+const SHADOWVIPER_LEDGER: LedgerRow[] = [
+  [118, 1500, WALLET_ENTRY_KIND.DONATION, "CAP-1001"],
+  [118, -75, WALLET_ENTRY_KIND.FEE, "FEE-1001"],
+  [104, 320, WALLET_ENTRY_KIND.AD_SHARE, "ADS-2026-07"],
+  [96, 2500, WALLET_ENTRY_KIND.BOUNTY, "CAP-1002"],
+  [81, 1000, WALLET_ENTRY_KIND.DONATION, "CAP-1003"],
+  [81, -50, WALLET_ENTRY_KIND.FEE, "FEE-1003"],
+  [74, 410, WALLET_ENTRY_KIND.AD_SHARE, "ADS-2026-08"],
+  [70, -3000, WALLET_ENTRY_KIND.WITHDRAWAL, "PO-5001"],
+  [55, 3500, WALLET_ENTRY_KIND.DONATION, "CAP-1004"],
+  [55, -175, WALLET_ENTRY_KIND.FEE, "FEE-1004"],
+  [44, 380, WALLET_ENTRY_KIND.AD_SHARE, "ADS-2026-09"],
+  [38, -2000, WALLET_ENTRY_KIND.WITHDRAWAL, "PO-5002"],
+  [37, 2000, WALLET_ENTRY_KIND.REVERSAL, "PO-5002-R"],
+  [26, 5000, WALLET_ENTRY_KIND.BOUNTY, "CAP-1005"],
+  [14, 520, WALLET_ENTRY_KIND.AD_SHARE, "ADS-2026-10"],
+  [9, -4000, WALLET_ENTRY_KIND.WITHDRAWAL, "PO-5003"],
+  [2, 2000, WALLET_ENTRY_KIND.DONATION, "CAP-1006"],
+  [2, -100, WALLET_ENTRY_KIND.FEE, "FEE-1006"],
+  [1, 4500, WALLET_ENTRY_KIND.BOUNTY, "CAP-1007"],
+];
+
+export const mockWalletEntries: WalletEntry[] = SHADOWVIPER_LEDGER.map(([days, amount, kind, ref], index) => ({
+  id: `wal_${index + 1}`,
+  userId: "usr_gamer_1",
+  amount,
+  kind,
+  paypalRef: ref,
+  // Fees land a second after the capture they belong to.
+  createdAt: daysAgo(days, kind === WALLET_ENTRY_KIND.FEE ? 13 : 12),
+}));
+
+/**
+ * Weekly rad score points ending today, shaped so the chart shows a climb with one dip.
+ * The last point equals the gamer's current radScore.
+ */
+const RAD_SCORE_STEPS = [-1180, -1010, -920, -960, -700, -540, -410, -300, -120, 0];
+
+export function mockRadScoreHistory(radScore: number): Array<{ date: string; radScore: number }> {
+  return RAD_SCORE_STEPS.map((step, index) => ({
+    date: daysAgo((RAD_SCORE_STEPS.length - 1 - index) * 7, 0),
+    radScore: Math.max(0, radScore + step),
+  }));
+}
+
+/** GET /coach/matches demo answer for coach@play2pro.test. gamerId = userId, like the leaderboard. */
+export const mockCoachMatches: CoachMatch[] = [
   {
-    id: "wal_1",
-    userId: "usr_gamer_1",
-    amount: 2000,
-    kind: WALLET_ENTRY_KIND.DONATION,
-    paypalRef: "CAP-001",
-    createdAt: "2026-11-08T10:00:00.000Z",
+    gamerId: "usr_gamer_1",
+    gamerTag: "ShadowViper",
+    game: "Valorant",
+    region: "Kenya",
+    radScore: 9420,
+    reason: "Consistent 1vX clutches and crosshair placement; fits a duelist slot on a Valorant roster.",
   },
   {
-    id: "wal_2",
-    userId: "usr_gamer_1",
-    amount: -100,
-    kind: WALLET_ENTRY_KIND.FEE,
-    paypalRef: "FEE-001",
-    createdAt: "2026-11-08T10:00:01.000Z",
+    gamerId: "usr_gamer_4",
+    gamerTag: "GhostAim",
+    game: "Call of Duty Mobile",
+    region: "Kenya",
+    radScore: 8720,
+    reason: "Long hardpoint streaks with steady objective time; strong anchor for a CODM team.",
   },
   {
-    id: "wal_3",
-    userId: "usr_gamer_1",
-    amount: 4500,
-    kind: WALLET_ENTRY_KIND.BOUNTY,
-    paypalRef: "CAP-002",
-    createdAt: "2026-11-09T15:30:00.000Z",
+    gamerId: "usr_gamer_5",
+    gamerTag: "Vortex",
+    game: "Fortnite",
+    region: "Ghana",
+    radScore: 8540,
+    reason: "Fast box-fight edits and late-zone decision making; rising quickly this month.",
   },
 ];

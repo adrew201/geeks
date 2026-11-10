@@ -47,7 +47,11 @@ export const BOUNTY_TYPE = {
 } as const;
 export type BountyType = (typeof BOUNTY_TYPE)[keyof typeof BOUNTY_TYPE];
 
-/** README §15.3 statuses (schema uses OPEN_ESCROWED / EXPIRED_VOIDED; confirm with Obonyo). */
+/**
+ * README §15.3 bounty statuses: the only values the app uses. The Prisma schema sends
+ * OPEN_ESCROWED / EXPIRED_VOIDED and has no AWAITING_APPROVAL; toBountyStatus() in
+ * features/bounties/bounty-status.ts maps those onto these. Confirm with Obonyo.
+ */
 export const BOUNTY_STATUS = {
   DRAFT: "DRAFT",
   AWAITING_APPROVAL: "AWAITING_APPROVAL",
@@ -58,6 +62,20 @@ export const BOUNTY_STATUS = {
   CANCELLED: "CANCELLED",
 } as const;
 export type BountyStatus = (typeof BOUNTY_STATUS)[keyof typeof BOUNTY_STATUS];
+
+/**
+ * UNCONFIRMED (ask Obonyo): entry statuses, from the Prisma SubmissionStatus enum. README §13
+ * only has `confirmed` and `aiVerdict`; toSubmission() derives a status from those when the
+ * API sends none.
+ */
+export const SUBMISSION_STATUS = {
+  SUBMITTED: "SUBMITTED",
+  AI_VERIFIED: "AI_VERIFIED",
+  AI_REJECTED: "AI_REJECTED",
+  WINNER_APPROVED: "WINNER_APPROVED",
+  DECLINED: "DECLINED",
+} as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUS)[keyof typeof SUBMISSION_STATUS];
 
 /** Decision 3: the wallet is built around these kinds (README §13 WalletEntry.kind). */
 export const WALLET_ENTRY_KIND = {
@@ -375,39 +393,35 @@ export type VoteResponse = unknown;
 /* ------------------------------------------------------------------ */
 
 /**
- * GET /api/v1/leaderboard?game=<slug>. Shape confirmed by Fabiola.
- * `game` is a slug (config/games.ts), never a display name; an unknown slug answers 400.
- * The JWT is sent when signed in so the API can fill `me`.
- * README has no trend, period or region filter for the leaderboard, and rows carry no region.
- * UNCONFIRMED: whether `game` may be omitted for an all-games board. The app always sends one.
+ * GET /api/v1/leaderboard[?game=<name>]. Shape confirmed by Fabiola (backend on fabiola/ranking,
+ * src/lib/ranking/leaderboard.ts). Public route: no JWT needed.
+ * - `game` is the display name as stored on GamerProfile.primaryGame / secondaryGames
+ *   (e.g. "Valorant"), matched exactly. Leave it out for the overall board.
+ * - Top 50 by rad score (ties broken by Elo). The filter only narrows who appears; ranks are
+ *   1..n within the filtered list and scores are the same on every board.
+ * - An unknown game is not an error: it returns an empty `entries`.
+ * - Private profiles (visibility false) are left out.
+ * - There is no "my position" field: the app finds the caller in `entries` by gamerId.
+ * Refetch after a vote to see the change.
  */
-export interface LeaderboardRow {
+export interface LeaderboardEntry {
   rank: number;
-  userId: string;
+  /** The gamer's userId; links to GET /api/v1/gamers/:id. */
+  gamerId: string;
   gamerTag: string;
+  displayName: string;
+  avatarUrl: string | null;
+  /** Display name, e.g. "Valorant". */
+  primaryGame: string;
+  region: string | null;
   radScore: number;
-  /** Game slug. */
-  game: string;
-}
-
-/**
- * The caller's own position for the requested game, even when it falls outside `rows`.
- * Null for coaches, sponsors and gamers with no clips in that game (the page is behind login,
- * so signed-out callers never reach it).
- */
-export interface LeaderboardMe {
-  rank: number;
-  userId: string;
-  radScore: number;
-  /** Game slug. */
-  game: string;
+  currentElo: number;
 }
 
 export interface LeaderboardResponse {
-  /** Game slug the rows are for. */
-  game: string;
-  rows: LeaderboardRow[];
-  me: LeaderboardMe | null;
+  /** The `game` query echoed back; null for the overall board. */
+  game: string | null;
+  entries: LeaderboardEntry[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -445,7 +459,11 @@ export const PAYMENT_ORDER_STATUS = {
 } as const;
 export type PaymentOrderStatus = (typeof PAYMENT_ORDER_STATUS)[keyof typeof PAYMENT_ORDER_STATUS];
 
-/** UNCONFIRMED: what the order paid for. Only DONATION is built; the others reuse the flow. */
+/**
+ * UNCONFIRMED: what the order paid for. DONATION and BOUNTY are built. For BOUNTY the order is
+ * intent AUTHORIZE, so COMPLETED is assumed to mean "authorization verified, funds held", not
+ * captured (README §15.3).
+ */
 export const PAYMENT_PURPOSE = {
   DONATION: "DONATION",
   BOUNTY: "BOUNTY",
@@ -508,31 +526,17 @@ export interface WithdrawRequest {
 /* ------------------------------------------------------------------ */
 /* Bounties (README §15.3)                                              */
 /* ------------------------------------------------------------------ */
+// Endpoints (features/bounties/api.ts):
+//   GET  /api/v1/bounties                    README §14, any user, open bounties
+//   POST /api/v1/bounties                    README §14, verified adult
+//   POST /api/v1/bounties/:id/submissions    README §14, GAMER + verified adult
+//   POST /api/v1/bounties/:id/confirm        README §14, bounty creator (or coach); body UNCONFIRMED
+//   GET  /api/v1/bounties/:id                UNCONFIRMED (not in README §14)
+//   POST /api/v1/bounties/:id/submissions/:submissionId/reject   UNCONFIRMED (not in README §14)
+// Only features/bounties/bounty-status.ts reads the Api* shapes; the rest of the app uses
+// Bounty and BountySubmission.
 
-export interface Bounty {
-  id: string;
-  creatorId: string;
-  type: BountyType;
-  task: string;
-  reward: Cents;
-  deadline: IsoDate;
-  status: BountyStatus;
-  communityId?: string | null;
-}
-
-export interface CreateBountyRequest {
-  type: BountyType;
-  task: string;
-  reward: Cents;
-  deadline: IsoDate;
-  communityId?: string;
-}
-
-export interface CreateBountyResponse {
-  approvalUrl: string;
-}
-
-/** README §10 bounty verification output (advisory). */
+/** README §10 bounty verification output. Advisory only: a human still confirms. */
 export interface AiVerdict {
   pass: boolean;
   confidence: number;
@@ -542,17 +546,117 @@ export interface AiVerdict {
   reason: string;
 }
 
-export interface BountySubmission {
+/**
+ * UNCONFIRMED: a bounty as the API sends it. README §13 and the Prisma schema name the fields
+ * differently, so both sets are optional here: README `type`, `task`, `reward` (integer
+ * cents) vs schema `bountyType`, `title` + `taskDescription`, `rewardAmount` (Decimal dollars).
+ */
+export interface ApiBounty {
   id: string;
-  bountyId: string;
-  gamerId: string;
-  clipId: string;
-  aiVerdict: AiVerdict | null;
-  confirmed: boolean;
+  creatorId: string;
+  status: string;
+  deadline: IsoDate;
+  type?: string;
+  bountyType?: string;
+  title?: string;
+  task?: string;
+  taskDescription?: string;
+  game?: string;
+  reward?: Cents;
+  rewardAmount?: string | number;
+  communityId?: string | null;
+  /** UNCONFIRMED: only on GET /bounties/:id. The creator gets every entry, a gamer only their own. */
+  submissions?: ApiBountySubmission[];
 }
 
+/** UNCONFIRMED: an entry as the API sends it (README §13 fields plus Prisma BountySubmission fields). */
+export interface ApiBountySubmission {
+  id: string;
+  gamerId: string;
+  /** UNCONFIRMED display name. */
+  gamerTag?: string;
+  /** UNCONFIRMED: echoed from CreateSubmissionRequest. */
+  clipUrl?: string;
+  note?: string | null;
+  // README §13
+  aiVerdict?: AiVerdict | null;
+  confirmed?: boolean;
+  // Prisma schema
+  status?: string;
+  aiVerificationStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  aiConfidenceScore?: number | null;
+  aiReviewNotes?: string | null;
+  creatorConfirmed?: boolean;
+}
+
+/** The AI check after toSubmission(): README `aiVerdict` or the schema's score and notes. Advisory. */
+export interface AiAdvice {
+  pass: boolean;
+  /** 0 to 1. */
+  confidence: number | null;
+  reason: string | null;
+  /** README-only detail checks; absent when the API sends the schema shape. */
+  matchesGame?: boolean;
+  taskCompleted?: boolean;
+  looksReused?: boolean;
+}
+
+/** An entry as the app sees it, after toSubmission(). */
+export interface BountySubmission {
+  id: string;
+  gamerId: string;
+  gamerTag: string | null;
+  clipUrl: string | null;
+  note: string | null;
+  status: SubmissionStatus;
+  ai: AiAdvice | null;
+  /** The AI check failed; the creator reviews the clip without it. */
+  aiFailed: boolean;
+}
+
+/** A bounty as the app sees it, after toBounty(). */
+export interface Bounty {
+  id: string;
+  creatorId: string;
+  type: BountyType;
+  title: string;
+  task: string;
+  game: string | null;
+  reward: Cents;
+  deadline: IsoDate;
+  status: BountyStatus;
+  submissions: BountySubmission[];
+}
+
+/** README §14 body, plus `title` and `game` (UNCONFIRMED: the Prisma model requires both). */
+export interface CreateBountyRequest {
+  type: BountyType;
+  title: string;
+  task: string;
+  game: string;
+  reward: Cents;
+  deadline: IsoDate;
+}
+
+/**
+ * README §14 returns `{ approvalUrl }` (PayPal order, intent AUTHORIZE). UNCONFIRMED: `orderId`
+ * and `bountyId`. Without `orderId` the client reads PayPal's `token` from the approval URL.
+ */
+export interface CreateBountyResponse {
+  approvalUrl: string;
+  orderId?: string;
+  bountyId?: string;
+}
+
+/** UNCONFIRMED body (ask Obonyo): the backend creates the clip from the link. */
 export interface CreateSubmissionRequest {
-  clipId: string;
+  clipUrl: string;
+  note?: string;
+}
+
+/** UNCONFIRMED body for README §14 POST /bounties/:id/confirm: which entry wins. */
+export interface ConfirmBountyRequest {
+  submissionId: string;
 }
 
 /* ------------------------------------------------------------------ */

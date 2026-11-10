@@ -52,8 +52,8 @@ function viewStyle(view: PaymentView, copy: PurposeCopy): ViewStyle & { descript
       return {
         tone: "success",
         icon: <CircleCheck />,
-        badge: { tone: "green", label: "Payment verified" },
-        title: "Payment confirmed!",
+        badge: { tone: "green", label: copy.confirmedBadge },
+        title: copy.confirmedTitle,
         description: copy.confirmedDescription,
         pulse: false,
       };

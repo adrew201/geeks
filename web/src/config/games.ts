@@ -1,9 +1,10 @@
-// Game slugs the API accepts (GET /api/v1/leaderboard?game=<slug>), mapped to display names.
-// The single source for game slugs and their labels.
+// The app's game slugs mapped to display names. The single source for games and their labels.
 //
-// UNCONFIRMED until Fabiola sends the seed slugs. Only codm, valorant and fc25 have been
-// confirmed as examples; the display names and this being the full list are not.
-// The backend answers 400 for an unknown slug.
+// The leaderboard API takes the display name, not the slug (GET /api/v1/leaderboard?game=Valorant),
+// matched exactly against GamerProfile.primaryGame / secondaryGames, so `name` must be spelled
+// exactly as the seed stores it. An unknown name returns an empty board, not an error.
+// UNCONFIRMED until Fabiola sends the seed's game names: only "Valorant" (the schema default)
+// is confirmed; "Call of Duty Mobile", "EA SPORTS FC 25" and this being the full list are not.
 // `short` is the label used where space is tight (10M filter pills).
 
 export const GAMES = {

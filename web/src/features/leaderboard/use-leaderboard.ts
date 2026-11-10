@@ -1,85 +1,66 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { GameSlug } from "../../config/games.ts";
-import { ApiError } from "../../lib/api-client.ts";
 import { getSession } from "../../lib/session.ts";
-import type { LeaderboardMe, LeaderboardRow } from "../../types/api.ts";
-import { DEFAULT_GAME, fetchLeaderboard } from "./api.ts";
+import { ROLE, type LeaderboardEntry } from "../../types/api.ts";
+import { DEFAULT_GAME, fetchLeaderboard, type GameFilter } from "./api.ts";
 
 // The 10D state toolbar as real states:
-//   A Default          → status "ready"
+//   A Default          → status "ready", overall board (no `game`)
 //   B Filtered         → `game` set (game is the only server filter; region has no endpoint)
-//   C Search           → `search` set, filtered client-side over the loaded rows
-//   D Unranked User    → `me` is null (the API decides; coaches, sponsors, no clips in the game)
+//   C Search           → `search` set, filtered client-side over the loaded entries
+//   D Unranked User    → a signed-in gamer who isn't in the returned top 50
 //   E Loading          → status "loading" (skeletons)
-//   F Empty Results    → status "ready" with no visible rows
-//   G User Highlighted → the row whose userId matches `me` is highlighted
-// Plus: status "unknown-game" when the API rejects the slug with 400.
+//   F Empty Results    → status "ready" with no visible entries (an unknown game lands here too)
+//   G User Highlighted → the entry whose gamerId is the signed-in user's userId
+// The API has no "my position" field, so a gamer ranked below the top 50 can't see their rank.
 
 interface Result {
   key: string;
-  rows: LeaderboardRow[];
-  me: LeaderboardMe | null;
+  entries: LeaderboardEntry[];
   error: string | null;
-  errorStatus: number | null;
 }
 
-export type LeaderboardStatus = "loading" | "error" | "unknown-game" | "ready";
+export type LeaderboardStatus = "loading" | "error" | "ready";
 
 export function useLeaderboard() {
-  const [game, setGame] = useState<GameSlug>(DEFAULT_GAME);
+  const [game, setGame] = useState<GameFilter>(DEFAULT_GAME);
   const [search, setSearch] = useState("");
   const [reloadCount, setReloadCount] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [session] = useState(getSession);
 
   // A request is "loading" until a result for its exact key lands, so no state is set
-  // synchronously inside the effect.
-  const key = `${game}|${reloadCount}`;
+  // synchronously inside the effect. Each visit refetches, so votes cast on the feed show up.
+  const key = `${game ?? "all"}|${reloadCount}`;
 
   useEffect(() => {
     const controller = new AbortController();
     fetchLeaderboard(game, controller.signal).then(
       (response) =>
-        setResult({
-          key,
-          rows: [...response.rows].sort((a, b) => a.rank - b.rank),
-          me: response.me,
-          error: null,
-          errorStatus: null,
-        }),
+        setResult({ key, entries: [...response.entries].sort((a, b) => a.rank - b.rank), error: null }),
       (error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setResult({
-          key,
-          rows: [],
-          me: null,
-          error: error instanceof Error ? error.message : "Something went wrong.",
-          errorStatus: error instanceof ApiError ? error.status : null,
-        });
+        setResult({ key, entries: [], error: error instanceof Error ? error.message : "Something went wrong." });
       },
     );
     return () => controller.abort();
   }, [game, key]);
 
-  const status: LeaderboardStatus =
-    result?.key !== key
-      ? "loading"
-      : result.error
-        ? result.errorStatus === 400
-          ? "unknown-game"
-          : "error"
-        : "ready";
-  const rows = useMemo(() => (status === "ready" && result ? result.rows : []), [status, result]);
-  /** From the API (`me`), never looked up in `rows`: the user may rank outside them. */
-  const me = status === "ready" && result ? result.me : null;
+  const status: LeaderboardStatus = result?.key !== key ? "loading" : result.error ? "error" : "ready";
+  const entries = useMemo(() => (status === "ready" && result ? result.entries : []), [status, result]);
 
-  const visibleRows = useMemo(() => {
+  /** Only gamers are ranked, so the "your position" card is for gamers only. */
+  const isGamer = session?.role === ROLE.GAMER;
+  const meId = isGamer ? session.userId : null;
+  /** The signed-in gamer's entry, or null when they're outside the top 50 for this board. */
+  const me = useMemo(() => (meId ? (entries.find((entry) => entry.gamerId === meId) ?? null) : null), [entries, meId]);
+
+  const visibleEntries = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return rows;
-    return rows.filter(
-      (row) => row.gamerTag.toLowerCase().includes(query) || row.userId.toLowerCase().includes(query),
+    if (!query) return entries;
+    return entries.filter((entry) =>
+      [entry.gamerTag, entry.displayName, entry.gamerId].some((value) => value.toLowerCase().includes(query)),
     );
-  }, [rows, search]);
+  }, [entries, search]);
 
   const refresh = useCallback(() => setReloadCount((count) => count + 1), []);
   const clearFilters = useCallback(() => {
@@ -89,15 +70,16 @@ export function useLeaderboard() {
 
   return {
     status,
-    error: status === "error" || status === "unknown-game" ? (result?.error ?? null) : null,
+    error: status === "error" ? (result?.error ?? null) : null,
     game,
     setGame,
     search,
     setSearch,
-    rows,
-    visibleRows,
-    podium: rows.slice(0, 3),
-    signedIn: session !== null,
+    entries,
+    visibleEntries,
+    podium: entries.slice(0, 3),
+    isGamer,
+    meId,
     me,
     refresh,
     clearFilters,

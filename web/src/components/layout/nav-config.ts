@@ -25,6 +25,9 @@ export const ROUTES = {
   leaderboard: "/leaderboard",
   wallet: "/wallet",
   bounties: "/bounties",
+  bountyNew: "/bounties/new",
+  /** Build links with bountyPath(). */
+  bountyDetail: "/bounties/:id",
   submitGameplay: "/clips/new",
   discover: "/discover",
   /** Gamer profile (pages 12 + 06). Build links with gamerProfilePath(). */
@@ -38,6 +41,10 @@ export const ROUTES = {
 /** Public Gamer ID (pages 12 + 06, docs/ui-audit.md §9). */
 export function gamerProfilePath(gamerId: string): string {
   return `/gamers/${encodeURIComponent(gamerId)}`;
+}
+
+export function bountyPath(bountyId: string): string {
+  return `/bounties/${encodeURIComponent(bountyId)}`;
 }
 
 /** Query flag that reopens the donate modal on a Gamer ID (after login or a failed payment). */
@@ -97,11 +104,10 @@ export function navAudienceFor(role: Role): NavAudience {
 /**
  * Where each role lands after login or signup. The single source for this redirect.
  * (02D sent every login to the coach dashboard and every signup to gamer onboarding.)
- * Gamers go to the Arena until the dashboard (page 05) is built; then switch to
- * ROUTES.dashboard here.
+ * Gamers land on their dashboard (page 05); coaches and sponsors on Discover (page 11).
  */
 export function homeRouteFor(role: Role): string {
-  return role === ROLE.GAMER ? ROUTES.arena : ROUTES.discover;
+  return role === ROLE.GAMER ? ROUTES.dashboard : ROUTES.discover;
 }
 
 export interface PublicLink {

@@ -46,3 +46,13 @@
     }
   }
 }
+
+/* AG Grid (components/data/DataGrid): centre every cell vertically, so plain text lines up
+   with the two-line renderer cells in taller rows. */
+.ag-cell {
+  display: flex;
+  align-items: center;
+}
+.ag-cell.ag-right-aligned-cell {
+  justify-content: flex-end;
+}

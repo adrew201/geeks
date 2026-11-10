@@ -87,7 +87,7 @@ function OrderReturn({ orderId, cancelledHint }: { orderId: string; cancelledHin
       {label}
     </ButtonLink>
   );
-  const backLabel = returnPath ? (recipientName ? `Back to ${recipientName}'s Gamer ID` : "Back to Gamer ID") : "Go to Arena";
+  const backLabel = context?.returnLabel ?? (returnPath ? (recipientName ? `Back to ${recipientName}'s Gamer ID` : "Back to Gamer ID") : "Go to Arena");
 
   let actions;
   let note;
