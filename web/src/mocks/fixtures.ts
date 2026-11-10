@@ -1,0 +1,171 @@
+// Demo data for VITE_USE_MOCKS=true. Gamer tags come from the prototypes; clip URLs are
+// placeholders (README §11: use only links we're allowed to use). Money in integer cents.
+
+import {
+  BOUNTY_STATUS,
+  BOUNTY_TYPE,
+  CLIP_STATUS,
+  ROLE,
+  TIER,
+  WALLET_ENTRY_KIND,
+  type Bounty,
+  type Clip,
+  type GamerProfile,
+  type HouseAd,
+  type LeaderboardEntry,
+  type User,
+  type WalletEntry,
+} from "../types/api.ts";
+
+export const mockUser: User = {
+  id: "usr_gamer_1",
+  email: "gamer@play2pro.test",
+  role: ROLE.GAMER,
+  tier: TIER.FREE,
+  isVerifiedAdult: true,
+};
+
+export const mockGamers: GamerProfile[] = [
+  {
+    id: "gmr_shadowviper",
+    userId: "usr_gamer_1",
+    gamerTags: ["ShadowViper"],
+    platforms: ["PC"],
+    games: ["Valorant"],
+    region: "Kenya",
+    aiSummary: {
+      summary:
+        "Aggressive Valorant duelist with strong clutch play and consistent crosshair placement.",
+      strengths: ["clutch", "aim"],
+      roles: ["duelist"],
+    },
+    radScore: 9420,
+  },
+  {
+    id: "gmr_phantomx",
+    userId: "usr_gamer_2",
+    gamerTags: ["PhantomX"],
+    platforms: ["PC"],
+    games: ["Valorant"],
+    region: "Kenya",
+    aiSummary: null,
+    radScore: 9810,
+  },
+  {
+    id: "gmr_novastrike",
+    userId: "usr_gamer_3",
+    gamerTags: ["NovaStrike"],
+    platforms: ["Mobile"],
+    games: ["Call of Duty Mobile"],
+    region: "Africa",
+    aiSummary: null,
+    radScore: 9105,
+  },
+];
+
+export const mockClips: Clip[] = [
+  {
+    id: "clp_1",
+    ownerId: "gmr_shadowviper",
+    url: "https://example.com/clips/clp_1",
+    description: "1v3 clutch on Ascent with the Sheriff",
+    game: "Valorant",
+    tags: ["clutch", "1v3", "sheriff"],
+    stats: { kills: 3, headshots: 2, objective: "spike defused" },
+    keyMoments: [{ t: "0:07", label: "1v3 clutch" }],
+    aiQualityScore: 78,
+    eloRating: 1540,
+    status: CLIP_STATUS.ANALYSED,
+  },
+  {
+    id: "clp_2",
+    ownerId: "gmr_phantomx",
+    url: "https://example.com/clips/clp_2",
+    description: "Ace on Bind B site retake",
+    game: "Valorant",
+    tags: ["ace", "retake"],
+    stats: { kills: 5, headshots: 3 },
+    aiQualityScore: 84,
+    eloRating: 1610,
+    status: CLIP_STATUS.ANALYSED,
+  },
+  {
+    id: "clp_3",
+    ownerId: "gmr_novastrike",
+    url: "https://example.com/clips/clp_3",
+    description: "Final circle squad wipe",
+    game: "Call of Duty Mobile",
+    tags: ["squad-wipe"],
+    stats: null,
+    aiQualityScore: null,
+    eloRating: 1500,
+    status: CLIP_STATUS.PENDING,
+  },
+];
+
+export const mockHouseAd: HouseAd = {
+  id: "ad_house_1",
+  title: "Go ad-free with Play2Pro Paid",
+  body: "Upgrade to remove ads and lower your donation fee.",
+  ctaLabel: "Upgrade",
+  ctaUrl: "/upgrade",
+};
+
+export const mockLeaderboard: LeaderboardEntry[] = [...mockGamers]
+  .sort((a, b) => b.radScore - a.radScore)
+  .map((gamer, index) => ({
+    rank: index + 1,
+    gamerId: gamer.id,
+    gamerTag: gamer.gamerTags[0] ?? gamer.id,
+    game: gamer.games[0] ?? "",
+    region: gamer.region,
+    radScore: gamer.radScore,
+  }));
+
+export const mockBounties: Bounty[] = [
+  {
+    id: "bty_1",
+    creatorId: "usr_sponsor_1",
+    type: BOUNTY_TYPE.CHALLENGE,
+    task: "Win a 1v3 clutch round in Valorant ranked",
+    reward: 5000,
+    deadline: "2026-11-11T18:00:00.000Z",
+    status: BOUNTY_STATUS.OPEN,
+  },
+  {
+    id: "bty_2",
+    creatorId: "usr_sponsor_1",
+    type: BOUNTY_TYPE.DARE,
+    task: "Sheriff-only ace in a competitive match",
+    reward: 2500,
+    deadline: "2026-11-11T20:00:00.000Z",
+    status: BOUNTY_STATUS.VERIFYING,
+  },
+];
+
+export const mockWalletEntries: WalletEntry[] = [
+  {
+    id: "wal_1",
+    userId: "usr_gamer_1",
+    amount: 2000,
+    kind: WALLET_ENTRY_KIND.DONATION,
+    paypalRef: "CAP-001",
+    createdAt: "2026-11-08T10:00:00.000Z",
+  },
+  {
+    id: "wal_2",
+    userId: "usr_gamer_1",
+    amount: -100,
+    kind: WALLET_ENTRY_KIND.FEE,
+    paypalRef: "FEE-001",
+    createdAt: "2026-11-08T10:00:01.000Z",
+  },
+  {
+    id: "wal_3",
+    userId: "usr_gamer_1",
+    amount: 4500,
+    kind: WALLET_ENTRY_KIND.BOUNTY,
+    paypalRef: "CAP-002",
+    createdAt: "2026-11-09T15:30:00.000Z",
+  },
+];
