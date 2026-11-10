@@ -16,10 +16,7 @@ export function formatScore(score: number): string {
   return numberFormat.format(score);
 }
 
-/** "Valorant • Kenya", or just the game when region is null. */
-export function gameAndRegion(game: string, region: string | null): string {
-  return region ? `${game} • ${region}` : game;
-}
+export { gameName } from "../../config/games.ts";
 
 /** Decision 5: every "Ranking Score" in 10D/10M is the rad score. */
 export const SCORE_LABEL = RAD_SCORE_LABEL;

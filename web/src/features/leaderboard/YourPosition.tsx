@@ -2,15 +2,16 @@ import { Award, CloudUpload } from "lucide-react";
 import { ROUTES } from "../../components/layout/nav-config.ts";
 import { Badge } from "../../components/ui/Badge.tsx";
 import { ButtonLink } from "../../components/ui/Button.tsx";
-import type { LeaderboardEntry } from "../../types/api.ts";
-import { SCORE_LABEL, formatScore, gameAndRegion } from "./rank-styles.ts";
+import type { LeaderboardMe } from "../../types/api.ts";
+import { SCORE_LABEL, formatScore, gameName } from "./rank-styles.ts";
 
 // 10D .your-rank-card and 10M "YOUR RANKING" strip. "+6 this week" is hidden: no trend field.
-// `me` is null when the user isn't in the loaded rows for the current game filter
-// (10D state D). README has no "my rank" endpoint, so a user ranked outside the
-// returned rows also shows as unranked.
+// `me` comes from the leaderboard response, so a user ranked outside the returned rows
+// still sees their position. It is null for coaches, sponsors and gamers with no clips in
+// the selected game: only then is "not ranked yet" shown (10D state D).
+// `me` has no gamerTag or region, so the card shows rank, game and score only.
 
-export function DesktopYourPosition({ me }: { me: LeaderboardEntry | null }) {
+export function DesktopYourPosition({ me }: { me: LeaderboardMe | null }) {
   return (
     <section
       aria-labelledby="your-position-title"
@@ -22,12 +23,11 @@ export function DesktopYourPosition({ me }: { me: LeaderboardEntry | null }) {
             <h2 id="your-position-title" className="text-12 font-bold text-primary uppercase">
               Your position
             </h2>
-            <Badge tone="blue">{gameAndRegion(me.game, me.region)}</Badge>
+            <Badge tone="blue">{gameName(me.game)}</Badge>
           </div>
           <div className="flex items-center gap-4">
             <p className="font-display text-40 leading-none font-bold text-primary">#{me.rank}</p>
             <div className="min-w-0">
-              <p className="truncate text-16 font-extrabold">{me.gamerTag}</p>
               <p className="text-12 text-fg-muted">
                 {SCORE_LABEL}: <strong className="text-fg">{formatScore(me.radScore)}</strong>
               </p>
@@ -59,7 +59,7 @@ export function DesktopYourPosition({ me }: { me: LeaderboardEntry | null }) {
   );
 }
 
-export function MobileYourPosition({ me }: { me: LeaderboardEntry | null }) {
+export function MobileYourPosition({ me }: { me: LeaderboardMe | null }) {
   return (
     <section
       aria-label="Your ranking"
@@ -67,7 +67,7 @@ export function MobileYourPosition({ me }: { me: LeaderboardEntry | null }) {
     >
       <div className="min-w-0">
         <p className="text-9 font-bold text-primary uppercase">Your ranking</p>
-        <p className="truncate text-13 font-extrabold">{me ? `#${me.rank} ${me.gamerTag}` : "Not ranked yet"}</p>
+        <p className="truncate text-13 font-extrabold">{me ? `#${me.rank} in ${gameName(me.game)}` : "Not ranked yet"}</p>
       </div>
       {me ? (
         <p className="font-display text-14 font-bold text-primary">{formatScore(me.radScore)}</p>

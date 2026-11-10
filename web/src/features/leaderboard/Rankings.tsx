@@ -7,15 +7,16 @@ import { Card } from "../../components/ui/Card.tsx";
 import { EmptyState } from "../../components/ui/EmptyState.tsx";
 import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { cn } from "../../lib/cn.ts";
-import type { LeaderboardEntry } from "../../types/api.ts";
-import { SCORE_LABEL, formatScore, gameAndRegion, rankTextClass } from "./rank-styles.ts";
+import type { LeaderboardRow } from "../../types/api.ts";
+import { SCORE_LABEL, formatScore, gameName, rankTextClass } from "./rank-styles.ts";
 
 // Plain table for now; AG Grid arrives with the dashboards step.
-// 10D Trend column hidden: no trend field in the contract.
+// 10D Trend and Region columns hidden: no trend or region field in the contract.
+// UNCONFIRMED: profile links and the "ID:" line use userId (rows have no gamerId).
 
 export interface RankingsProps {
-  rows: LeaderboardEntry[];
-  /** The signed-in user's gamerId, highlighted when present (10D state G). */
+  rows: LeaderboardRow[];
+  /** `me.userId` from the API; that row is highlighted when it is loaded (10D state G). */
   meId: string | null;
   /** Total loaded rows before search, for the results badge. */
   totalRows: number;
@@ -63,7 +64,7 @@ export function RankingTable({ rows, meId, totalRows, searching, onClearFilters 
           <caption className="sr-only">Gamers ranked by {SCORE_LABEL}</caption>
           <thead>
             <tr>
-              {["Rank", "Gamer", "Game", "Region", SCORE_LABEL].map((heading) => (
+              {["Rank", "Gamer", "Game", SCORE_LABEL].map((heading) => (
                 <th
                   key={heading}
                   scope="col"
@@ -79,11 +80,11 @@ export function RankingTable({ rows, meId, totalRows, searching, onClearFilters 
           </thead>
           <tbody>
             {rows.map((row) => {
-              const isMe = row.gamerId === meId;
+              const isMe = row.userId === meId;
               const podium = row.rank <= 3;
               return (
                 <tr
-                  key={row.gamerId}
+                  key={row.userId}
                   aria-current={isMe ? "true" : undefined}
                   className={cn(
                     "[&>td]:p-4 [&>td]:align-middle",
@@ -103,12 +104,11 @@ export function RankingTable({ rows, meId, totalRows, searching, onClearFilters 
                           {row.gamerTag}
                           {isMe && " (You)"}
                         </p>
-                        <p className={cn("text-10", isMe ? "text-primary" : "text-fg-muted")}>ID: {row.gamerId}</p>
+                        <p className={cn("text-10", isMe ? "text-primary" : "text-fg-muted")}>ID: {row.userId}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="text-fg-secondary">{row.game}</td>
-                  <td className="text-fg-secondary">{row.region ?? "—"}</td>
+                  <td className="text-fg-secondary">{gameName(row.game)}</td>
                   <td
                     className={cn(
                       "font-display font-bold",
@@ -124,7 +124,7 @@ export function RankingTable({ rows, meId, totalRows, searching, onClearFilters 
                       </ButtonLink>
                     ) : (
                       <ButtonLink
-                        to={gamerProfilePath(row.gamerId)}
+                        to={gamerProfilePath(row.userId)}
                         variant="ghost"
                         size="sm"
                         aria-label={`${row.gamerTag}'s profile`}
@@ -155,10 +155,10 @@ export function RankingCards({ rows, meId, onClearFilters }: RankingsProps) {
   return (
     <ol aria-label={`Gamers ranked by ${SCORE_LABEL}`} className="flex flex-col gap-2">
       {rows.map((row) => {
-        const isMe = row.gamerId === meId;
+        const isMe = row.userId === meId;
         return (
           <li
-            key={row.gamerId}
+            key={row.userId}
             aria-current={isMe ? "true" : undefined}
             className={cn(
               "flex items-center justify-between gap-3 rounded-md border px-3 py-2.5",
@@ -172,7 +172,7 @@ export function RankingCards({ rows, meId, onClearFilters }: RankingsProps) {
                   {row.gamerTag}
                   {isMe && " (You)"}
                 </p>
-                <p className="truncate text-10 text-fg-muted">{gameAndRegion(row.game, row.region)}</p>
+                <p className="truncate text-10 text-fg-muted">{gameName(row.game)}</p>
               </div>
             </div>
             <span className={cn("font-display font-bold", isMe ? "text-primary" : "text-success")}>

@@ -8,9 +8,9 @@ import { Input } from "../../components/ui/Field.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { cn } from "../../lib/cn.ts";
 import { DESKTOP_QUERY, useMediaQuery } from "../../lib/use-media-query.ts";
-import { GAME_FILTERS } from "./api.ts";
+import { DEFAULT_GAME, GAME_FILTERS } from "./api.ts";
 import { DesktopPodium, MobilePodium, PodiumSkeleton } from "./Podium.tsx";
-import { SCORE_LABEL } from "./rank-styles.ts";
+import { SCORE_LABEL, gameName } from "./rank-styles.ts";
 import { RankingCards, RankingTable, RankingsSkeleton } from "./Rankings.tsx";
 import { useLeaderboard, type LeaderboardController } from "./use-leaderboard.ts";
 import { DesktopYourPosition, MobileYourPosition } from "./YourPosition.tsx";
@@ -23,6 +23,7 @@ import { DesktopYourPosition, MobileYourPosition } from "./YourPosition.tsx";
 // - Region filter (10D Global/Africa/Kenya/Europe/North America; 10M Kenya/Global pills).
 // - Period filter (10D All Time/This Month/This Week).
 // - Trend column and "+N this week" (10D table, your-position card, 10M cards).
+// - "All Games" pill: the API ranks one game per request (?game=<slug>).
 // - Hero stats: Ranked Gamers, Active Games, and "Live Sync / Updated 5m ago".
 //   Animation note (docs/ui-audit.md §5c): "Live Sync" is described but never implemented
 //   in the HTML; there is no live-update channel, so the Refresh button refetches instead.
@@ -198,6 +199,26 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
     );
   }
 
+  if (board.status === "unknown-game") {
+    // The API answers 400 for a slug it doesn't know (config/games.ts is UNCONFIRMED).
+    return (
+      <Card>
+        <StatusPanel
+          tone="warning"
+          title={`Rankings for ${gameName(board.game)} aren't available`}
+          description="This game isn't on the leaderboard yet. Pick another game."
+          actions={
+            board.game !== DEFAULT_GAME && (
+              <Button variant="secondary" size="sm" onClick={board.clearFilters}>
+                Show {gameName(DEFAULT_GAME)}
+              </Button>
+            )
+          }
+        />
+      </Card>
+    );
+  }
+
   if (board.status === "error") {
     return (
       <Card>
@@ -217,7 +238,7 @@ function Body({ board, variant }: { board: LeaderboardController; variant: "desk
 
   const rankingProps = {
     rows: board.visibleRows,
-    meId: board.me?.gamerId ?? null,
+    meId: board.me?.userId ?? null,
     totalRows: board.rows.length,
     searching: board.search.trim() !== "",
     onClearFilters: board.clearFilters,

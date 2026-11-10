@@ -363,23 +363,40 @@ export type VoteResponse = unknown;
 /* ------------------------------------------------------------------ */
 
 /**
- * UNCONFIRMED row shape for GET /api/v1/leaderboard?game= (README §14: "Gamers ranked by
- * rad score"). Values come from GamerProfile (README §13); the row layout is assumed.
- * README has no trend, period or region filter for the leaderboard.
+ * GET /api/v1/leaderboard?game=<slug>. Shape confirmed by Fabiola.
+ * `game` is a slug (config/games.ts), never a display name; an unknown slug answers 400.
+ * The JWT is sent when signed in so the API can fill `me`.
+ * README has no trend, period or region filter for the leaderboard, and rows carry no region.
+ * UNCONFIRMED: whether `game` may be omitted for an all-games board. The app always sends one.
  */
-export interface LeaderboardEntry {
+export interface LeaderboardRow {
   rank: number;
-  gamerId: string;
-  /** UNCONFIRMED: needed to find the signed-in user's row (JWT carries userId, not gamerId). */
   userId: string;
   gamerTag: string;
-  game: string;
-  region: string | null;
   radScore: number;
+  /** Game slug. */
+  game: string;
 }
 
-/** UNCONFIRMED: assumed to be a bare array, not wrapped in an envelope. */
-export type LeaderboardResponse = LeaderboardEntry[];
+/**
+ * The caller's own position for the requested game, even when it falls outside `rows`.
+ * Null for coaches, sponsors and gamers with no clips in that game (the page is behind login,
+ * so signed-out callers never reach it).
+ */
+export interface LeaderboardMe {
+  rank: number;
+  userId: string;
+  radScore: number;
+  /** Game slug. */
+  game: string;
+}
+
+export interface LeaderboardResponse {
+  /** Game slug the rows are for. */
+  game: string;
+  rows: LeaderboardRow[];
+  me: LeaderboardMe | null;
+}
 
 /* ------------------------------------------------------------------ */
 /* Payments (README §15)                                                */

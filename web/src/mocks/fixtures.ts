@@ -14,10 +14,11 @@ import {
   type Clip,
   type GamerProfile,
   type HouseAd,
-  type LeaderboardEntry,
+  type LeaderboardRow,
   type User,
   type WalletEntry,
 } from "../types/api.ts";
+import { GAMES, GAME_SLUGS, type GameSlug } from "../config/games.ts";
 
 export const mockUser: User = {
   id: "usr_gamer_1",
@@ -185,17 +186,22 @@ export const mockHouseAd: HouseAd = {
   ctaUrl: "/upgrade",
 };
 
-export const mockLeaderboard: LeaderboardEntry[] = [...mockGamers]
-  .sort((a, b) => b.radScore - a.radScore)
-  .map((gamer, index) => ({
-    rank: index + 1,
-    gamerId: gamer.id,
-    userId: gamer.userId,
-    gamerTag: gamer.gamerTags[0] ?? gamer.id,
-    game: gamer.games[0] ?? "",
-    region: gamer.region,
-    radScore: gamer.radScore,
-  }));
+/** config/games.ts slug for a fixture's display-name game (null when the game has no slug yet). */
+function gameSlugFor(name: string | undefined): GameSlug | null {
+  return GAME_SLUGS.find((slug) => GAMES[slug].name === name) ?? null;
+}
+
+/**
+ * Unranked leaderboard rows, one per gamer for their first game. Gamers whose game has no
+ * confirmed slug (Vortex / Fortnite) are left out. The mock ranks them per game.
+ */
+export const mockLeaderboardRows: LeaderboardRow[] = mockGamers.flatMap((gamer) => {
+  const game = gameSlugFor(gamer.games[0]);
+  if (!game) return [];
+  return [
+    { rank: 0, userId: gamer.userId, gamerTag: gamer.gamerTags[0] ?? gamer.id, radScore: gamer.radScore, game },
+  ];
+});
 
 export const mockBounties: Bounty[] = [
   {

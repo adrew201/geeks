@@ -1,6 +1,7 @@
 // Mock API used when env.useMocks is true. Add a route here when a page needs one.
 // Unknown routes reject with NOT_FOUND so missing mocks are obvious.
 
+import { isGameSlug } from "../config/games.ts";
 import { ApiError } from "../lib/api-error.ts";
 import { fromApiRole, toApiRole } from "../lib/role-adapter.ts";
 import { getSession } from "../lib/session.ts";
@@ -26,7 +27,7 @@ import {
   mockClips,
   mockGamers,
   mockHouseAd,
-  mockLeaderboard,
+  mockLeaderboardRows,
   mockAccounts,
   mockUser,
   mockWalletEntries,
@@ -72,6 +73,14 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  * QA switch for states the happy-path fixtures never reach. Add `?mock=<scenario>` to the
  * page URL, e.g. /feed?mock=vote-fail, /leaderboard?mock=empty, /login?mock=auth-fail,
  * /login?mock=short-session or /gamers/gmr_shadowviper?mock=profile-private. Mock mode only.
+ *
+ * Leaderboard, signed in as gamer@play2pro.test (ShadowViper, Valorant):
+ *   default                     Valorant shows `me` (rank 2, inside the rows); COD Mobile and
+ *                               EA SPORTS FC 25 return me=null (no clips in that game)
+ *   ?mock=leaderboard-me-outside `me` is set but the user's row is not in `rows`
+ *   ?mock=leaderboard-no-me      me=null for every game (as for coaches and sponsors)
+ *   ?mock=leaderboard-bad-game   400 for every slug (unknown-game state)
+ *   ?mock=leaderboard-fail       500
  */
 type MockScenario =
   | "empty"
@@ -79,6 +88,9 @@ type MockScenario =
   | "vote-fail"
   | "vote-404"
   | "leaderboard-fail"
+  | "leaderboard-me-outside"
+  | "leaderboard-no-me"
+  | "leaderboard-bad-game"
   | "auth-fail"
   | "short-session"
   | "profile-fail"
@@ -218,11 +230,30 @@ route("POST", "/api/v1/clips/:id/vote", ({ params }) => {
 
 route("GET", "/api/v1/leaderboard", ({ query }): LeaderboardResponse => {
   if (scenario() === "leaderboard-fail") serverError();
-  if (scenario() === "empty") return [];
-  const game = query.get("game");
-  const rows = game ? mockLeaderboard.filter((entry) => entry.game === game) : mockLeaderboard;
-  // Ranks are per game, so re-number after filtering.
-  return rows.map((entry, index) => ({ ...entry, rank: index + 1 }));
+  const game = query.get("game") ?? "";
+  if (scenario() === "leaderboard-bad-game" || !isGameSlug(game)) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, `Unknown game "${game}".`);
+  }
+  if (scenario() === "empty") return { game, rows: [], me: null };
+
+  // Ranks are per game.
+  const rows = mockLeaderboardRows
+    .filter((row) => row.game === game)
+    .sort((a, b) => b.radScore - a.radScore)
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+
+  // `me` is the caller's position; null for coaches, sponsors and gamers with no clips here.
+  const session = getSession();
+  const mine = session?.role === ROLE.GAMER ? rows.find((row) => row.userId === session.userId) : undefined;
+  const me =
+    mine && scenario() !== "leaderboard-no-me"
+      ? { rank: mine.rank, userId: mine.userId, radScore: mine.radScore, game }
+      : null;
+
+  if (me && scenario() === "leaderboard-me-outside") {
+    return { game, rows: rows.filter((row) => row.userId !== me.userId), me };
+  }
+  return { game, rows, me };
 });
 
 /* ------------------------------ gamer profile ------------------------------ */
