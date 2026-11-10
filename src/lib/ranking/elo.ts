@@ -1,4 +1,4 @@
-import type { VoteType } from "@prisma/client";
+import type { UserRole, VoteType } from "@prisma/client";
 
 // Opponent rating for every vote. Matches the schema default for Clip.eloRating.
 export const BASELINE_ELO = 1200;
@@ -7,6 +7,11 @@ export const BASELINE_ELO = 1200;
 const K_NEW = 40;
 const K_ESTABLISHED = 20;
 const NEW_CLIP_VOTES = 10;
+
+// Matches the SwipeVote.voterWeight schema comment: coaches count more.
+export function voterWeight(role: UserRole): number {
+  return role === "COACH" ? 2.5 : 1;
+}
 
 export function expectedScore(rating: number, opponentRating: number): number {
   return 1 / (1 + 10 ** ((opponentRating - rating) / 400));

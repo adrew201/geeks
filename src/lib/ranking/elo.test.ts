@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { BASELINE_ELO, expectedScore, kFactor, updateElo } from "./elo.js";
+import { BASELINE_ELO, expectedScore, kFactor, updateElo, voterWeight } from "./elo.js";
+
+describe("voterWeight", () => {
+  it("counts coaches at 2.5 and everyone else at 1", () => {
+    expect(voterWeight("COACH")).toBe(2.5);
+    expect(voterWeight("GAMER_FREE")).toBe(1);
+    expect(voterWeight("GAMER_PAID")).toBe(1);
+    expect(voterWeight("SPONSOR")).toBe(1);
+  });
+});
 
 describe("expectedScore", () => {
   it("is 0.5 for equal ratings", () => {
