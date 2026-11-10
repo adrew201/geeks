@@ -10,9 +10,11 @@ import ads from "./plugins/ads/index.js";
 import coach from "./plugins/coach/index.js";
 import leaderboard from "./plugins/leaderboard/index.js";
 import { getHealth } from "./lib/health.js";
+import { setupCore } from "./lib/core.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
+  setupCore(app);
   app.get("/health", async (_req, reply) => {
     const { statusCode, body } = await getHealth();
     return reply.code(statusCode).send(body);
