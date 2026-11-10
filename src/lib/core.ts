@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import { errorHandler } from "./errors.js";
 
@@ -15,6 +16,12 @@ export function setupCore(app: FastifyInstance) {
     secret = randomBytes(32).toString("hex");
     app.log.warn("JWT_SECRET is not set: using a random one-off secret (logins reset on restart)");
   }
+
+  // The web app calls the API from another origin. CORS_ORIGIN is a comma-separated list
+  // (set it to the deployed web URL on Render); the default is the Vite dev server.
+  app.register(cors, {
+    origin: (process.env.CORS_ORIGIN ?? "http://localhost:5173").split(",").map((o) => o.trim()),
+  });
 
   app.register(jwt, { secret, sign: { expiresIn: process.env.JWT_EXPIRES_IN ?? "7d" } });
   app.setErrorHandler(errorHandler);
