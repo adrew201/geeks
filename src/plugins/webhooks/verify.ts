@@ -24,8 +24,9 @@ export function isPaypalCertUrl(raw: string): boolean {
 export const fetchCert: CertFetcher = async (url) => {
   const cached = certCache.get(url);
   if (cached) return cached;
-  // redirect: "error" so a paypal.com URL can't bounce us to another host
-  const res = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: "error" });
+  // redirect: "error" so a paypal.com URL can't bounce us to another host.
+  // 10s: the first sandbox download took over 5s and the event only got through on PayPal's retry.
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000), redirect: "error" });
   if (!res.ok) throw new Error(`PayPal cert fetch failed with ${res.status}`);
   const pem = await res.text();
   certCache.set(url, pem);

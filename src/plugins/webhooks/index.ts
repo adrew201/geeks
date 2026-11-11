@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { verifyPaypalSignature } from "./verify.js";
-import { claimEvent, isPaypalEvent, markEvent } from "./service.js";
-import { handlers } from "./handlers.js";
+import { isPaypalEvent, recordAndHandle } from "./service.js";
+import { makeHandlers } from "./handlers.js";
 
 // Mock events from PayPal's webhook simulator are signed with this literal webhook ID.
 // Accepted outside production only, so the Render deploy rejects them.
@@ -10,6 +10,13 @@ const SIMULATOR_WEBHOOK_ID = "WEBHOOK_ID";
 const fail = (code: string, message: string) => ({ error: { code, message } });
 
 const webhooksPlugin: FastifyPluginAsync = async (app) => {
+  // Defaults match .env.example
+  const handlers = makeHandlers({
+    donationFeeBps: Number(process.env.DONATION_FEE_BPS ?? 500),
+    donationFeeBpsPaidGamer: Number(process.env.DONATION_FEE_BPS_PAID_GAMER ?? 250),
+    bountyCommissionBps: Number(process.env.BOUNTY_COMMISSION_BPS ?? 1000),
+  });
+
   // The signature covers the body exactly as PayPal sent it, so keep the raw bytes.
   // Scoped to this plugin: other plugins keep the default JSON parser.
   app.removeContentTypeParser("application/json");
@@ -51,25 +58,14 @@ const webhooksPlugin: FastifyPluginAsync = async (app) => {
     }
 
     const log = req.log.child({ eventId: event.id, eventType: event.event_type });
-    if (!(await claimEvent(event))) {
-      log.info("Duplicate PayPal webhook, skipped");
-      return reply.code(200).send({ received: true });
-    }
-
-    const handler = handlers[event.event_type];
-    if (!handler) {
-      await markEvent(event.id, "IGNORED");
-      return reply.code(200).send({ received: true });
-    }
     try {
-      await handler(event);
+      const outcome = await recordAndHandle(event, handlers[event.event_type]);
+      log.info({ outcome }, "PayPal webhook");
     } catch (err) {
+      // The event row rolled back with the handler, so PayPal's retry runs it again.
       log.error({ err }, "PayPal webhook handler failed");
-      await markEvent(event.id, "FAILED");
-      // Non-2xx makes PayPal retry; the retry re-runs the handler because the status is FAILED.
       return reply.code(500).send(fail("WEBHOOK_HANDLER_FAILED", "Handler failed"));
     }
-    await markEvent(event.id, "PROCESSED");
     return reply.code(200).send({ received: true });
   });
 };

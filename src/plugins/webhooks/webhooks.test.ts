@@ -5,34 +5,44 @@ import Fastify from "fastify";
 import { isPaypalCertUrl, verifyPaypalSignature } from "./verify.js";
 import webhooks from "./index.js";
 
-// In-memory stand-in for the paypal_webhook_events table and the handler map.
+// In-memory stand-in for paypal_webhook_events with transaction rollback, plus the handler map.
 const db = vi.hoisted(() => {
   type Row = { eventId: string; eventType: string; status: string };
-  const state = { events: [] as Row[] };
+  const state = { events: [] as Row[], txOptions: undefined as unknown };
   const unique = () => Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
-  const paypalWebhookEvent = {
-    create: async ({ data }: { data: Row }) => {
-      if (state.events.some((e) => e.eventId === data.eventId)) throw unique();
-      state.events.push({ eventId: data.eventId, eventType: data.eventType, status: data.status });
-      return data;
-    },
-    updateMany: async ({ where, data }: { where: { eventId: string; status: string }; data: { status: string } }) => {
-      const rows = state.events.filter((e) => e.eventId === where.eventId && e.status === where.status);
-      rows.forEach((r) => (r.status = data.status));
-      return { count: rows.length };
-    },
-    update: async ({ where, data }: { where: { eventId: string }; data: { status: string } }) => {
-      const row = state.events.find((e) => e.eventId === where.eventId)!;
-      row.status = data.status;
-      return row;
+  const tx = {
+    paypalWebhookEvent: {
+      create: async ({ data }: { data: Row }) => {
+        if (state.events.some((e) => e.eventId === data.eventId)) throw unique();
+        state.events.push({ eventId: data.eventId, eventType: data.eventType, status: data.status });
+        return data;
+      },
     },
   };
-  return { state, prisma: { paypalWebhookEvent } };
+  const $transaction = async (fn: (t: typeof tx) => Promise<unknown>, options?: unknown) => {
+    state.txOptions = options;
+    const snapshot = state.events.map((e) => ({ ...e }));
+    try {
+      return await fn(tx);
+    } catch (e) {
+      state.events = snapshot; // rollback
+      throw e;
+    }
+  };
+  return { state, tx, prisma: { $transaction } };
 });
-const handlerMock = vi.hoisted(() => ({ handlers: {} as Record<string, (e: unknown) => Promise<void>> }));
+const handlerMock = vi.hoisted(() => ({
+  handlers: {} as Record<string, (tx: unknown, e: unknown) => Promise<void>>,
+  fees: undefined as unknown,
+}));
 
 vi.mock("../../lib/prisma.js", () => ({ prisma: db.prisma }));
-vi.mock("./handlers.js", () => handlerMock);
+vi.mock("./handlers.js", () => ({
+  makeHandlers: (fees: unknown) => {
+    handlerMock.fees = fees;
+    return handlerMock.handlers;
+  },
+}));
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
@@ -123,13 +133,23 @@ describe("POST /api/v1/webhooks/paypal", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("runs the handler once for a verified event and records it", async () => {
+  it("runs the handler once inside the transaction and records the event", async () => {
     const handler = vi.fn(async () => {});
     handlerMock.handlers[event.event_type] = handler;
     const res = await send(buildApp(), body, signedHeaders(body));
     expect(res.statusCode).toBe(200);
-    expect(handler).toHaveBeenCalledWith(event);
+    expect(handler).toHaveBeenCalledWith(db.tx, event);
+    expect(db.state.txOptions).toEqual({ timeout: 15_000 });
     expect(db.state.events).toEqual([{ eventId: "WH-EVT-1", eventType: event.event_type, status: "PROCESSED" }]);
+  });
+
+  it("builds handlers with fees from env, falling back to .env.example defaults", async () => {
+    process.env.DONATION_FEE_BPS = "700";
+    delete process.env.DONATION_FEE_BPS_PAID_GAMER;
+    delete process.env.BOUNTY_COMMISSION_BPS;
+    await buildApp().ready();
+    expect(handlerMock.fees).toEqual({ donationFeeBps: 700, donationFeeBpsPaidGamer: 250, bountyCommissionBps: 1000 });
+    delete process.env.DONATION_FEE_BPS;
   });
 
   it("rejects a forged event with 400 and stores nothing", async () => {
@@ -154,17 +174,26 @@ describe("POST /api/v1/webhooks/paypal", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 500 when the handler fails and re-runs it on retry", async () => {
+  it("rolls back the event when the handler fails, so PayPal's retry runs it again", async () => {
     const handler = vi.fn().mockRejectedValueOnce(new Error("sandbox down")).mockResolvedValueOnce(undefined);
     handlerMock.handlers[event.event_type] = handler;
     const app = buildApp();
     const first = await send(app, body, signedHeaders(body));
     expect(first.statusCode).toBe(500);
-    expect(db.state.events[0].status).toBe("FAILED");
+    expect(db.state.events).toEqual([]);
     const retry = await send(app, body, signedHeaders(body));
     expect(retry.statusCode).toBe(200);
     expect(handler).toHaveBeenCalledTimes(2);
     expect(db.state.events[0].status).toBe("PROCESSED");
+  });
+
+  it("treats a unique-constraint error from the handler as a failure, not a duplicate", async () => {
+    handlerMock.handlers[event.event_type] = async () => {
+      throw Object.assign(new Error("WalletEntry unique"), { code: "P2002" });
+    };
+    const res = await send(buildApp(), body, signedHeaders(body));
+    expect(res.statusCode).toBe(500);
+    expect(db.state.events).toEqual([]);
   });
 
   it("records events with no handler as IGNORED", async () => {

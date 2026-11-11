@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import type { WebhookHandler } from "./handlers.js";
 
 /** A verified PayPal webhook event. Only the fields the route relies on are typed. */
 export type PaypalEvent = {
@@ -10,43 +11,58 @@ export type PaypalEvent = {
   resource?: Record<string, unknown>;
 };
 
-export type EventStatus = "RECEIVED" | "PROCESSED" | "FAILED" | "IGNORED";
+export type Outcome = "PROCESSED" | "IGNORED" | "DUPLICATE";
+
+// Handlers write through the same transaction; give PayPal calls inside them room.
+const TX_TIMEOUT_MS = 15_000;
 
 export function isPaypalEvent(value: unknown): value is PaypalEvent {
   const v = value as Partial<PaypalEvent> | null;
   return typeof v?.id === "string" && v.id.length > 0 && typeof v.event_type === "string";
 }
 
-/**
- * Records a verified event. Returns true if the caller should handle it now:
- * a new event, or one whose earlier attempt FAILED. Repeats of PROCESSED,
- * IGNORED or in-flight (RECEIVED) events return false.
- */
-export async function claimEvent(event: PaypalEvent): Promise<boolean> {
-  try {
-    await prisma.paypalWebhookEvent.create({
-      data: {
-        eventId: event.id,
-        eventType: event.event_type,
-        resourceType: event.resource_type ?? "unknown",
-        summary: event.summary ?? null,
-        rawPayload: event as unknown as Prisma.InputJsonValue,
-        status: "RECEIVED",
-        signatureValid: true,
-      },
-    });
-    return true;
-  } catch (e) {
-    if ((e as { code?: string }).code !== "P2002") throw e;
+/** Wraps a handler error so it isn't mistaken for a duplicate-event P2002 from the insert. */
+class HandlerFailed extends Error {
+  constructor(public readonly original: unknown) {
+    super("Webhook handler failed");
   }
-  // Seen before. Flip FAILED -> RECEIVED in one statement so two concurrent retries can't both run.
-  const { count } = await prisma.paypalWebhookEvent.updateMany({
-    where: { eventId: event.id, status: "FAILED" },
-    data: { status: "RECEIVED" },
-  });
-  return count === 1;
 }
 
-export async function markEvent(eventId: string, status: Exclude<EventStatus, "RECEIVED">): Promise<void> {
-  await prisma.paypalWebhookEvent.update({ where: { eventId }, data: { status } });
+/**
+ * Stores a verified event and runs its handler in one transaction.
+ * A repeat event ID hits the unique index and returns DUPLICATE without running the handler.
+ * If the handler throws, the event row rolls back with it and the original error is rethrown,
+ * so PayPal's retry starts clean.
+ */
+export async function recordAndHandle(event: PaypalEvent, handler: WebhookHandler | undefined): Promise<Outcome> {
+  const status = handler ? "PROCESSED" : "IGNORED";
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.paypalWebhookEvent.create({
+          data: {
+            eventId: event.id,
+            eventType: event.event_type,
+            resourceType: event.resource_type ?? "unknown",
+            summary: event.summary ?? null,
+            rawPayload: event as unknown as Prisma.InputJsonValue,
+            status,
+            signatureValid: true,
+          },
+        });
+        if (!handler) return;
+        try {
+          await handler(tx, event);
+        } catch (e) {
+          throw new HandlerFailed(e);
+        }
+      },
+      { timeout: TX_TIMEOUT_MS },
+    );
+    return status;
+  } catch (e) {
+    if (e instanceof HandlerFailed) throw e.original;
+    if ((e as { code?: string }).code === "P2002") return "DUPLICATE";
+    throw e;
+  }
 }

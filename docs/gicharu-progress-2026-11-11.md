@@ -94,6 +94,32 @@ Remaining:
 3. Build the guards in `src/middleware/guards.ts`: `requireRole`, `requireTier` (which reads `tier` from the database), and `requireVerifiedAdult`, using the error codes in README section 18.
 4. Rabasa adds the subscription handlers to `handlers.ts`. Obonyo and Rabasa apply the guards to the bounty and withdraw routes.
 
+## Update: afternoon
+
+- Guards done: `requireRole`, `requireTier` (reads the database), `requireVerifiedAdult`, with 5 tests.
+- Rabasa asked for the handler to run in the same transaction as the event insert, via `makeHandlers(fees)[event_type]`. Rabasa's code wasn't on `main`, so we defined the contract ourselves (see webhook-verification.md) and switched to the transaction design. This removed the RECEIVED and FAILED statuses. The placeholder `handlers.ts` is replaced with Rabasa's version at merge.
+- Model name settled: `PaypalWebhookEvent` with `eventId`. README line 625 is out of date.
+- Sandbox: credentials confirmed. Created a test product `PROD-5N621731GS5814904`, plan `P-1NX18462CE441364MNL2FQLY` ($9.99/month, test only) and subscription `I-P9E40KUTVGWS` in Gicharu's personal sandbox.
+- The sandbox webhook URL was the bare ngrok host with no path. It's now `https://<ngrok>/api/v1/webhooks/paypal`.
+- `.env` uses `PAYPAL_MODE`, but the code reads `PAYPAL_API_BASE`. Add `PAYPAL_API_BASE=https://api-m.sandbox.paypal.com` back.
+- Tests: 8 files, 53 tests pass.
+
+## Sandbox test result
+
+Subscription `I-P9E40KUTVGWS` was approved with a sandbox buyer account, and PayPal shows it as ACTIVE.
+
+| Request                                                     | Result                                                                |
+| ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Real `BILLING.SUBSCRIPTION.ACTIVATED`, first delivery       | 500: PayPal cert download timed out (5s limit), nothing stored        |
+| Same event, PayPal's automatic retry about 35s later        | 200: verified with the real `PAYPAL_WEBHOOK_ID`, stored as IGNORED    |
+| Exact replay of the real request                            | 200: duplicate, no new row                                            |
+| Real request with the event type edited                     | 400 `INVALID_SIGNATURE`, no row                                       |
+| Real request with the signature altered                     | 400 `INVALID_SIGNATURE`, no row                                       |
+| Real request with the cert URL on another host              | 400 `INVALID_SIGNATURE`, no row                                       |
+| Real request with a new event ID and the old signature      | 400 `INVALID_SIGNATURE`, no row                                       |
+
+PayPal's cert host in sandbox is `api.sandbox.paypal.com`, which passes the paypal.com allowlist. `BILLING.SUBSCRIPTION.CREATED` was not seen. It was probably sent while the webhook URL was still the bare ngrok host or the tunnel pointed at port 3000, in which case PayPal retries it later.
+
 ## References
 
 - https://developer.paypal.com/api/rest/webhooks/rest/
