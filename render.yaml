@@ -7,7 +7,7 @@ services:
     name: play2pro-api
     runtime: node
     plan: free
-    region: oregon
+    region: ohio
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npx prisma migrate deploy && npm start
     healthCheckPath: /health
@@ -38,19 +38,22 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Password for the seeded demo accounts (min 8 chars). Value comes from Fabiola privately.
+      - key: SEED_PASSWORD
+        sync: false
       - key: PAYPAL_API_BASE
         value: https://api-m.sandbox.paypal.com
 
   - type: keyvalue
     name: play2pro-redis
     plan: free
-    region: oregon
+    region: ohio
     maxmemoryPolicy: noeviction # BullMQ requires this
     ipAllowList: [] # internal connections only
 
 databases:
   - name: play2pro-db
     plan: free
-    region: oregon
+    region: ohio
     databaseName: play2pro
     user: play2pro
