@@ -132,4 +132,33 @@ export async function captureCheckoutOrder(orderId: string, requestId: string): 
 export async function authorizeOrder(amount: string): Promise<{ orderId: string; approvalUrl: string }> { return todo("authorizeOrder"); }
 export async function captureOrder(authorizationId: string): Promise<{ captureId: string }> { return todo("captureOrder"); }
 export async function voidAuthorization(authorizationId: string): Promise<void> { return todo("voidAuthorization"); }
-export async function payout(userId: string, amount: string): Promise<{ payoutBatchId: string }> { return todo("payout"); }
+
+/**
+ * Sends money to a PayPal account by email (Payouts API). `senderBatchId` must be unique:
+ * PayPal rejects a repeat, so a retried request can't pay twice. Tested in sandbox:
+ * the batch goes PENDING, then SUCCESS within about 10 seconds.
+ */
+export async function payout(input: {
+  receiverEmail: string;
+  amountCents: number;
+  currency: string;
+  senderBatchId: string;
+  senderItemId: string;
+  note: string;
+}): Promise<{ payoutBatchId: string; batchStatus: string }> {
+  const res = await paypal<{ batch_header?: { payout_batch_id?: string; batch_status?: string } }>("POST", "/v1/payments/payouts", {
+    sender_batch_header: { sender_batch_id: input.senderBatchId, email_subject: "Your Play2Pro withdrawal" },
+    items: [
+      {
+        recipient_type: "EMAIL",
+        receiver: input.receiverEmail,
+        amount: { value: toValue(input.amountCents), currency: input.currency },
+        sender_item_id: input.senderItemId,
+        note: input.note,
+      },
+    ],
+  });
+  const batch = res.batch_header;
+  if (!batch?.payout_batch_id) throw new Error("PayPal payout response has no batch id");
+  return { payoutBatchId: batch.payout_batch_id, batchStatus: batch.batch_status ?? "PENDING" };
+}

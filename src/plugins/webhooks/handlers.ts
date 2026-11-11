@@ -9,6 +9,7 @@ import type { Prisma } from "@prisma/client";
 import type { PaypalEvent } from "./service.js";
 import { captureCheckoutOrder } from "../payments/service.js";
 import { completeDonation, failDonation } from "../payments/donations.js";
+import { markWithdrawalPaid, reverseWithdrawal } from "../payments/wallet.js";
 
 /** Basis points, read from env in the webhook route. */
 export type Fees = {
@@ -76,5 +77,44 @@ export function makeHandlers(fees: Fees): Partial<Record<string, WebhookHandler>
       const donationId = await donationIdForCapture(tx, c);
       if (donationId) await failDonation(tx, donationId);
     },
+
+    // Withdrawals: sender_item_id is our WITHDRAWAL wallet entry id (set in wallet.ts).
+    "PAYMENT.PAYOUTS-ITEM.SUCCEEDED": async (tx, event) => {
+      const item = payoutItem(event);
+      if (item) await markWithdrawalPaid(tx, item.entryId, item.payoutItemId);
+    },
+    // UNCLAIMED and HELD are not here on purpose: the money can still arrive, so the withdrawal
+    // stays PENDING. An unclaimed payout that expires comes back as RETURNED.
+    ...Object.fromEntries(
+      PAYOUT_FAILURES.map((type): [string, WebhookHandler] => [
+        type,
+        async (tx, event) => {
+          const item = payoutItem(event);
+          if (item) await reverseWithdrawal(tx, item.entryId, item.payoutItemId);
+        },
+      ]),
+    ),
   };
+}
+
+const PAYOUT_FAILURES = [
+  "PAYMENT.PAYOUTS-ITEM.FAILED",
+  "PAYMENT.PAYOUTS-ITEM.RETURNED",
+  "PAYMENT.PAYOUTS-ITEM.BLOCKED",
+  "PAYMENT.PAYOUTS-ITEM.DENIED",
+  "PAYMENT.PAYOUTS-ITEM.REFUNDED",
+  "PAYMENT.PAYOUTS-ITEM.CANCELED",
+];
+
+type PayoutItemResource = {
+  payout_item_id?: string;
+  sender_item_id?: string;
+  payout_item?: { sender_item_id?: string };
+};
+
+function payoutItem(event: PaypalEvent): { entryId: string; payoutItemId: string } | undefined {
+  const r = event.resource as PayoutItemResource | undefined;
+  const entryId = r?.payout_item?.sender_item_id ?? r?.sender_item_id;
+  if (!r?.payout_item_id || !entryId) return undefined;
+  return { entryId, payoutItemId: r.payout_item_id };
 }
