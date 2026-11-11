@@ -4,6 +4,7 @@ import { ROUTES } from "./components/layout/nav-config.ts";
 import LoginPage from "./features/auth/LoginPage.tsx";
 import { RequireAuth } from "./features/auth/RequireAuth.tsx";
 import BountiesPage from "./features/bounties/BountiesPage.tsx";
+import SubmitClipPage from "./features/clips/SubmitClipPage.tsx";
 import BountyDetailPage from "./features/bounties/BountyDetailPage.tsx";
 import NewBountyPage from "./features/bounties/NewBountyPage.tsx";
 import SignupPage from "./features/auth/SignupPage.tsx";
@@ -17,15 +18,14 @@ import AppLayout from "./layouts/AppLayout.tsx";
 import AuthLayout from "./layouts/AuthLayout.tsx";
 import CheckoutLayout from "./layouts/CheckoutLayout.tsx";
 import PublicLayout from "./layouts/PublicLayout.tsx";
-import ComingSoonPage from "./pages/ComingSoonPage.tsx";
 import { PageLoading } from "./components/ui/PageLoading.tsx";
 import HomePage from "./pages/HomePage.tsx";
 import NotFoundPage from "./pages/NotFoundPage.tsx";
 import { ROLE } from "./types/api.ts";
 
 // Per docs/instructions.md: a real page is added only once it renders with real or mocked
-// data. Planned nav routes (docs/ui-audit.md §9) render ComingSoonPage behind the same role
-// guards they'll keep, so nav links never hit a blank screen.
+// data. Planned nav routes (docs/ui-audit.md §9) render pages/ComingSoonPage.tsx behind the
+// same role guards they'll keep, so nav links never hit a blank screen (none left right now).
 // Dashboards (step 7: /dashboard, /wallet, /discover) are lazy routes, so AG Grid and
 // AG Charts load only when one of them opens.
 // Payments: checkout starts in a modal (features/payments/PaymentModal) on the page that
@@ -80,7 +80,7 @@ export const router = createBrowserRouter([
               { path: ROUTES.dashboard, lazy: lazyPage(() => import("./features/dashboard/DashboardPage.tsx")) },
               { path: ROUTES.passport, element: <PassportPage /> },
               { path: ROUTES.wallet, lazy: lazyPage(() => import("./features/wallet/WalletPage.tsx")) },
-              { path: ROUTES.submitGameplay, element: <ComingSoonPage title="Submit Gameplay" /> },
+              { path: ROUTES.submitGameplay, element: <SubmitClipPage /> },
             ],
           },
           {

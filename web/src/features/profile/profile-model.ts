@@ -96,9 +96,9 @@ export function visibleSummary(profile: GamerProfile, kind: ViewerKind): AiSkill
 
 /* ------------------------------ clips ------------------------------ */
 
-/** README §12: a clip is AI-assessed once its analysis has run (PENDING → ANALYSED). */
+/** A clip is AI-assessed once its analysis has completed. */
 export function isClipAnalysed(clip: Clip): boolean {
-  return clip.status === CLIP_STATUS.ANALYSED && clip.aiQualityScore !== null;
+  return clip.status === CLIP_STATUS.COMPLETED && clip.aiQualityScore !== null;
 }
 
 function parseHttpUrl(url: string): URL | null {

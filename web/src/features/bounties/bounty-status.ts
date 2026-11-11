@@ -4,6 +4,7 @@ import {
   BOUNTY_STATUS,
   BOUNTY_TYPE,
   SUBMISSION_STATUS,
+  type AiVerdict,
   type ApiBounty,
   type ApiBountySubmission,
   type Bounty,
@@ -104,18 +105,46 @@ function toSubmissionStatus(raw: ApiBountySubmission): SubmissionStatus {
   return SUBMISSION_STATUS.SUBMITTED;
 }
 
+/**
+ * The worker stores the full verdict in aiReviewNotes as JSON. Returns it when the notes parse
+ * to a verdict with a `pass` boolean, otherwise null (plain-text notes).
+ */
+function parseReviewNotes(notes: string | null | undefined): AiVerdict | null {
+  if (!notes) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(notes);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const v = parsed as Partial<Record<keyof AiVerdict, unknown>>;
+  if (typeof v.pass !== "boolean") return null;
+  return {
+    pass: v.pass,
+    confidence: typeof v.confidence === "number" ? v.confidence : 0,
+    matchesGame: v.matchesGame === true,
+    taskCompleted: v.taskCompleted === true,
+    looksReused: v.looksReused === true,
+    reason: typeof v.reason === "string" ? v.reason : "",
+  };
+}
+
 export function toSubmission(raw: ApiBountySubmission): BountySubmission {
   const status = toSubmissionStatus(raw);
   let ai: BountySubmission["ai"] = null;
   if (raw.aiVerdict) {
     ai = { ...raw.aiVerdict };
   } else if (raw.aiVerificationStatus === "COMPLETED") {
-    // Schema shape: the pass/fail lives in the entry status.
-    ai = {
-      pass: status !== SUBMISSION_STATUS.AI_REJECTED,
-      confidence: raw.aiConfidenceScore ?? null,
-      reason: raw.aiReviewNotes ?? null,
-    };
+    const verdict = parseReviewNotes(raw.aiReviewNotes);
+    // Schema shape: the entry status holds pass/fail; the notes hold the verdict or plain text.
+    ai = verdict
+      ? { ...verdict, reason: verdict.reason || null }
+      : {
+          pass: status !== SUBMISSION_STATUS.AI_REJECTED,
+          confidence: raw.aiConfidenceScore ?? null,
+          reason: raw.aiReviewNotes ?? null,
+        };
   }
   return {
     id: raw.id,

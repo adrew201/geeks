@@ -33,10 +33,15 @@ export const VOTE_DIRECTION = {
 } as const;
 export type VoteDirection = (typeof VOTE_DIRECTION)[keyof typeof VOTE_DIRECTION];
 
-/** README §12: Clip goes PENDING → ANALYSED (schema AnalysisStatus differs; confirm with Obonyo). */
+/**
+ * Clip AI analysis status: the API's `aiAnalysisStatus` (Prisma AnalysisStatus). The clip
+ * worker sets PROCESSING when it starts, then COMPLETED or FAILED.
+ */
 export const CLIP_STATUS = {
   PENDING: "PENDING",
-  ANALYSED: "ANALYSED",
+  PROCESSING: "PROCESSING",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
 } as const;
 export type ClipStatus = (typeof CLIP_STATUS)[keyof typeof CLIP_STATUS];
 
@@ -318,13 +323,40 @@ export interface ClipStats {
   [key: string]: string | number | undefined;
 }
 
+/**
+ * A clip as the API sends it (the Prisma Clip row, e.g. the 201 body of POST /api/v1/clips).
+ * Only lib/clip-adapter.ts reads this; the rest of the app uses Clip.
+ */
+export interface ApiClip {
+  id: string;
+  gamerId: string;
+  title: string;
+  description: string | null;
+  videoUrl: string;
+  game: string;
+  aiAnalysisStatus: ClipStatus | (string & {});
+  aiGameDetected?: string | null;
+  /** Json column; the worker writes `{ t, label }[]`. */
+  aiKeyMoments?: unknown;
+  aiTags?: string[];
+  /** Defaults to 0 before analysis, so it only means something once COMPLETED. */
+  aiQualityScore?: number | null;
+  eloRating: number;
+  upvoteCount?: number;
+  downvoteCount?: number;
+  createdAt?: IsoDate;
+}
+
+/** A clip as the app sees it, after toClip(). */
 export interface Clip {
   id: string;
   ownerId: string;
   url: string;
+  title: string;
   description: string;
   game: string;
   tags: string[];
+  /** The worker doesn't store stats yet, so clips from the API have null. */
   stats: ClipStats | null;
   keyMoments?: ClipKeyMoment[];
   aiQualityScore: number | null;
@@ -332,17 +364,20 @@ export interface Clip {
   status: ClipStatus;
 }
 
+/** POST /api/v1/clips body (src/plugins/clips/routes.ts). */
 export interface CreateClipRequest {
-  url: string;
-  description: string;
-  game: string;
+  // TODO: should come from the JWT once Obonyo changes the routes. Until then it's the
+  // signed-in user's id (getSession().userId); the API looks it up as a User id.
+  gamerId: string;
+  title: string;
+  videoUrl: string;
+  description?: string;
+  /** Display name, e.g. "Valorant" (config/games.ts). The API defaults to "Valorant". */
+  game?: string;
 }
 
-/** README §14 example: 202 { id, status: "PENDING" }. */
-export interface CreateClipResponse {
-  id: string;
-  status: ClipStatus;
-}
+/** 201 with the created clip row; analysis is queued, so aiAnalysisStatus is PENDING. */
+export type CreateClipResponse = ApiClip;
 
 /**
  * UNCONFIRMED house-ad shape. README §19 only says "a house ad (Play2Pro promo)";
@@ -376,15 +411,18 @@ export interface FeedPage {
   nextCursor: string | null;
 }
 
-/** README §14: POST /api/v1/clips/:id/vote body `{ "direction": "UP" | "DOWN" }`. */
+/** POST /api/v1/clips/:id/vote body (src/plugins/clips/routes.ts). */
 export interface VoteRequest {
+  // TODO: should come from the JWT once Obonyo changes the routes. Until then it's the
+  // signed-in user's id (getSession().userId).
+  voterId: string;
   direction: VoteDirection;
 }
 
 /**
- * UNCONFIRMED: README gives no response body for a vote, so the client ignores it.
- * Vote is unique on (clipId, voterId) (README §13); the status code for a repeat vote is
- * also unconfirmed. The client treats 409 as "already voted" (see features/feed/api.ts).
+ * The API answers `{ clip, radScore }`; the client ignores it. A repeat vote isn't an error
+ * there (the same direction is a no-op, the other one switches the vote). The client still
+ * treats 409 as "already voted" (see features/feed/api.ts) in case that changes.
  */
 export type VoteResponse = unknown;
 
@@ -585,6 +623,7 @@ export interface ApiBountySubmission {
   status?: string;
   aiVerificationStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
   aiConfidenceScore?: number | null;
+  /** The worker stores the whole verdict here as a JSON string; older rows may be plain text. */
   aiReviewNotes?: string | null;
   creatorConfirmed?: boolean;
 }
