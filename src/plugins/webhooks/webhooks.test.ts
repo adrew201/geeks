@@ -8,11 +8,13 @@ import webhooks from "./index.js";
 // In-memory stand-in for paypal_webhook_events with transaction rollback, plus the handler map.
 const db = vi.hoisted(() => {
   type Row = { eventId: string; eventType: string; status: string };
-  const state = { events: [] as Row[], txOptions: undefined as unknown };
+  const state = { events: [] as Row[], txOptions: undefined as unknown, creates: 0 };
   const unique = () => Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
   const tx = {
     paypalWebhookEvent: {
+      findUnique: async ({ where }: { where: { eventId: string } }) => state.events.find((e) => e.eventId === where.eventId) ?? null,
       create: async ({ data }: { data: Row }) => {
+        state.creates++;
         if (state.events.some((e) => e.eventId === data.eventId)) throw unique();
         state.events.push({ eventId: data.eventId, eventType: data.eventType, status: data.status });
         return data;
@@ -164,14 +166,16 @@ describe("POST /api/v1/webhooks/paypal", () => {
     expect(db.state.events).toEqual([]);
   });
 
-  it("skips a duplicate of a processed event", async () => {
+  it("runs the handler once when the same event arrives 3 times, without re-inserting", async () => {
     const handler = vi.fn(async () => {});
     handlerMock.handlers[event.event_type] = handler;
+    db.state.creates = 0;
     const app = buildApp();
-    await send(app, body, signedHeaders(body));
-    const res = await send(app, body, signedHeaders(body));
-    expect(res.statusCode).toBe(200);
+    for (let i = 0; i < 3; i++) {
+      expect((await send(app, body, signedHeaders(body))).statusCode).toBe(200);
+    }
     expect(handler).toHaveBeenCalledTimes(1);
+    expect(db.state.creates).toBe(1); // duplicates are caught by the check, not by a failed insert
   });
 
   it("rolls back the event when the handler fails, so PayPal's retry runs it again", async () => {

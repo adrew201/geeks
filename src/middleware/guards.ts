@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { AppError } from "../lib/errors.js";
 
 // Route guards (README section 18). Use after app.authenticate, e.g.
-//   { preHandler: [app.authenticate, requireVerifiedAdult] }
+//   { preHandler: [app.authenticate, requireVerifiedAdult()] }
 // Role comes from the JWT because it never changes. Tier and adult status are read from
 // the database because a webhook or KYC can change them after the token was issued.
 
@@ -42,8 +42,10 @@ export function requireTier(tier: Tier): Guard {
   };
 }
 
-export const requireVerifiedAdult: Guard = async (req) => {
-  if (!(await loadUser(req)).isVerifiedAdult) {
-    throw new AppError(403, "NOT_VERIFIED_ADULT", "This needs a verified adult PayPal account");
-  }
-};
+export function requireVerifiedAdult(): Guard {
+  return async (req) => {
+    if (!(await loadUser(req)).isVerifiedAdult) {
+      throw new AppError(403, "NOT_VERIFIED_ADULT", "This needs a verified adult PayPal account");
+    }
+  };
+}
