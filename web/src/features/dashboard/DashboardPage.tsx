@@ -82,7 +82,9 @@ export default function DashboardPage() {
 
 function DashboardBody({ dashboard, compact }: { dashboard: GamerDashboard; compact: boolean }) {
   const clips = dashboard.clips ?? [];
-  const inAnalysis = clips.filter((clip) => clip.status === CLIP_STATUS.PENDING).length;
+  const inAnalysis = clips.filter(
+    (clip) => clip.status === CLIP_STATUS.PENDING || clip.status === CLIP_STATUS.PROCESSING,
+  ).length;
   const analysed = clips.filter(isClipAnalysed);
   const avgQuality =
     analysed.length > 0

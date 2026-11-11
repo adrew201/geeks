@@ -1,4 +1,5 @@
 import { api, ApiError } from "../../lib/api-client.ts";
+import { getSession } from "../../lib/session.ts";
 import {
   API_ERROR_CODE,
   type FeedPage,
@@ -14,22 +15,29 @@ export function fetchFeed(cursor: string | null, signal?: AbortSignal): Promise<
 }
 
 export function voteOnClip(clipId: string, direction: VoteDirection): Promise<VoteResponse> {
-  const body: VoteRequest = { direction };
+  // TODO: voterId should come from the JWT once Obonyo changes the routes.
+  const voterId = getSession()?.userId;
+  if (!voterId) {
+    return Promise.reject(new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to vote."));
+  }
+  const body: VoteRequest = { voterId, direction };
   return api.post<VoteResponse>(`/api/v1/clips/${encodeURIComponent(clipId)}/vote`, body);
 }
 
 /**
- * UNCONFIRMED: README only says Vote is unique on (clipId, voterId). We assume the API
- * answers a repeat vote with 409. Change it here if Obonyo ships something else.
+ * The API currently accepts a repeat vote (no-op or switch), so this never fires against it.
+ * Kept for the mocks and in case Obonyo adds a 409 for repeats.
  */
 export const ALREADY_VOTED_STATUS = 409;
+const NOT_FOUND_STATUS = 404;
 
 export type VoteFailureKind = "already-voted" | "unavailable" | "failed";
 
 export function classifyVoteError(error: unknown): VoteFailureKind {
   if (error instanceof ApiError) {
     if (error.status === ALREADY_VOTED_STATUS) return "already-voted";
-    if (error.code === API_ERROR_CODE.NOT_FOUND) return "unavailable";
+    // By status: the clip routes send `{ error: "clip not found" }`, which has no code.
+    if (error.status === NOT_FOUND_STATUS) return "unavailable";
   }
   return "failed";
 }

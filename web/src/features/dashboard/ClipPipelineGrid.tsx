@@ -7,13 +7,15 @@ import type { Tone } from "../../components/ui/tone-styles.ts";
 import { CLIP_STATUS, type Clip } from "../../types/api.ts";
 import { isClipAnalysed, safeClipUrl } from "../profile/profile-model.ts";
 
-// 05D "Gameplay Processing Pipeline" as an AG Grid. README §12: a clip goes PENDING →
-// ANALYSED once the AI worker has tagged it. 05D's "Review" stage has no contract field,
-// so the pipeline has two real stages. Mobile keeps the clip and its status only.
+// 05D "Gameplay Processing Pipeline" as an AG Grid. The clip's aiAnalysisStatus goes PENDING
+// (queued) → PROCESSING → COMPLETED or FAILED. 05D's "Review" stage has no contract field.
+// Mobile keeps the clip and its status only.
 
 const STATUS_BADGE: Record<string, { label: string; tone: Tone }> = {
-  [CLIP_STATUS.PENDING]: { label: "AI analysis", tone: "amber" },
-  [CLIP_STATUS.ANALYSED]: { label: "Analysed", tone: "violet" },
+  [CLIP_STATUS.PENDING]: { label: "Queued", tone: "slate" },
+  [CLIP_STATUS.PROCESSING]: { label: "AI analysis", tone: "amber" },
+  [CLIP_STATUS.COMPLETED]: { label: "Analysed", tone: "violet" },
+  [CLIP_STATUS.FAILED]: { label: "Analysis failed", tone: "red" },
 };
 
 function statusBadge(clip: Clip) {

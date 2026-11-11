@@ -17,10 +17,7 @@ export function fetchLeaderboard(game: GameFilter, signal?: AbortSignal): Promis
   });
 }
 
-/**
- * The 10D game pills: "All Games" (the overall board) plus config/games.ts (UNCONFIRMED list,
- * see there).
- */
+/** The 10D game pills: "All Games" (the overall board) plus the seed's games (config/games.ts). */
 export const GAME_FILTERS: Array<{ value: GameFilter; label: string; short?: string }> = [
   { value: null, label: "All Games" },
   ...GAME_SLUGS.map((slug) => {
