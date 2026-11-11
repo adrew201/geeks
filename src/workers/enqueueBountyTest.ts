@@ -23,6 +23,7 @@ const creator = await prisma.user.create({
     email: `sponsor-${stamp}@example.com`,
     username: `sponsor${stamp}`,
     displayName: "Test Sponsor",
+    passwordHash: "test-only-not-for-login",
     role: "SPONSOR",
   },
 });

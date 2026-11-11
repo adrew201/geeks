@@ -89,7 +89,7 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
   // regardless; ranking lights up when her functions land.
   let radScore: number | null = null;
   try {
-    await recordVote(clipId, voterId, direction);
+    await recordVote(clipId, voterId, voteType);
     radScore = await recomputeRadScore(clip.gamerId);
   } catch (err) {
     console.log("ranking not ready yet:", String(err));

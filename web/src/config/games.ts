@@ -3,14 +3,14 @@
 // The leaderboard API takes the display name, not the slug (GET /api/v1/leaderboard?game=Valorant),
 // matched exactly against GamerProfile.primaryGame / secondaryGames, so `name` must be spelled
 // exactly as the seed stores it. An unknown name returns an empty board, not an error.
-// UNCONFIRMED until Fabiola sends the seed's game names: only "Valorant" (the schema default)
-// is confirmed; "Call of Duty Mobile", "EA SPORTS FC 25" and this being the full list are not.
-// `short` is the label used where space is tight (10M filter pills).
+// Names match prisma/seed.ts (GAMERS[].game) exactly. `short` is the label used where space
+// is tight (10M filter pills).
 
 export const GAMES = {
   valorant: { name: "Valorant" },
-  codm: { name: "Call of Duty Mobile", short: "COD Mobile" },
-  fc25: { name: "EA SPORTS FC 25" },
+  fc25: { name: "EA FC 25" },
+  fortnite: { name: "Fortnite" },
+  lol: { name: "League of Legends", short: "LoL" },
 } as const satisfies Record<string, { name: string; short?: string }>;
 
 export type GameSlug = keyof typeof GAMES;

@@ -32,6 +32,10 @@ import {
   type SignupRequest,
   type UpdateGamerProfileRequest,
   type User,
+  type VoteRequest,
+  type ApiClip,
+  CLIP_STATUS,
+  type CreateClipRequest,
   type CoachMatch,
   WALLET_ENTRY_KIND,
   type WithdrawRequest,
@@ -126,8 +130,8 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  *
  * Leaderboard, signed in as gamer@play2pro.test (ShadowViper, Valorant):
  *   default                      All Games and Valorant include ShadowViper (highlighted, your
- *                                position shown); COD Mobile and EA SPORTS FC 25 don't (not in
- *                                the top 50); EA SPORTS FC 25 is empty (no gamer plays it)
+ *                                position shown); EA FC 25, Fortnite and League of Legends
+ *                                don't (not ShadowViper's games)
  *   ?mock=leaderboard-me-outside the signed-in gamer is left out of every board (below the top 50)
  *   ?mock=leaderboard-fail       500
  *
@@ -162,6 +166,11 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  *   ?mock=withdraw-fail   POST /wallet/withdraw answers 502 PAYPAL_ERROR
  *   ?mock=matches-empty / matches-fail  GET /coach/matches returns [] / answers 500
  *   ?mock=leaderboard-fail also fails the Discover talent grid (same endpoint)
+ *
+ * Clip submission (gamer@play2pro.test on /clips/new):
+ *   default               the clip is queued ~2s, analysed ~3s more, then shows its AI results
+ *   ?mock=clip-submit-fail POST /clips answers 500
+ *   ?mock=clip-ai-fail     analysis ends FAILED
  */
 type MockScenario =
   | "empty"
@@ -198,7 +207,9 @@ type MockScenario =
   | "withdraw-ineligible"
   | "withdraw-fail"
   | "matches-empty"
-  | "matches-fail";
+  | "matches-fail"
+  | "clip-submit-fail"
+  | "clip-ai-fail";
 
 function scenario(): MockScenario | null {
   if (typeof window === "undefined") return null;
@@ -314,8 +325,12 @@ route("GET", "/api/v1/feed", ({ query }): FeedPage => {
 /** Vote is unique on (clipId, voterId) (README §13). Tracks this tab's votes. */
 const mockVotes = new Set<string>();
 
-route("POST", "/api/v1/clips/:id/vote", ({ params }) => {
+route("POST", "/api/v1/clips/:id/vote", ({ params, body }) => {
   if (scenario() === "vote-fail") serverError();
+  // The real route requires voterId (until it reads the JWT).
+  if (!(body as Partial<VoteRequest> | undefined)?.voterId) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "body must have required property 'voterId'");
+  }
   if (scenario() === "vote-404") notFound("Clip not found.");
   if (!mockClips.some((clip) => clip.id === params.id)) notFound("Clip not found.");
   if (mockVotes.has(params.id)) {
@@ -324,6 +339,61 @@ route("POST", "/api/v1/clips/:id/vote", ({ params }) => {
   }
   mockVotes.add(params.id);
   return undefined;
+});
+
+/* ------------------------------ clip submission ------------------------------ */
+
+const MOCK_CLIP_QUEUED_MS = 2_000;
+const MOCK_CLIP_ANALYSIS_MS = 3_000;
+/** Clips submitted in this tab, with when they were created. */
+const mockSubmittedClips = new Map<string, { clip: ApiClip; createdAt: number }>();
+
+// The real route (src/plugins/clips/routes.ts): gamerId, title and videoUrl required; 201 with
+// the clip row, analysis queued.
+route("POST", "/api/v1/clips", ({ body }): ApiClip => {
+  requireSession();
+  if (scenario() === "clip-submit-fail") serverError();
+  const request = (body ?? {}) as Partial<CreateClipRequest>;
+  if (!request.gamerId || !request.title || !request.videoUrl) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "gamerId, title and videoUrl are required.");
+  }
+  const clip: ApiClip = {
+    id: `clp_new_${Date.now().toString(36)}`,
+    gamerId: request.gamerId,
+    title: request.title,
+    description: request.description ?? null,
+    videoUrl: request.videoUrl,
+    game: request.game ?? "Valorant",
+    aiAnalysisStatus: CLIP_STATUS.PENDING,
+    aiTags: [],
+    aiQualityScore: 0,
+    eloRating: 1200,
+  };
+  mockSubmittedClips.set(clip.id, { clip, createdAt: Date.now() });
+  return clip;
+});
+
+// MOCK ONLY: the real API has no GET /clips/:id (features/clips/api.ts canTrackClip).
+route("GET", "/api/v1/clips/:id", ({ params }): ApiClip => {
+  const entry = mockSubmittedClips.get(params.id) ?? notFound("Clip not found.");
+  const elapsed = Date.now() - entry.createdAt;
+  if (elapsed < MOCK_CLIP_QUEUED_MS) return entry.clip;
+  if (elapsed < MOCK_CLIP_QUEUED_MS + MOCK_CLIP_ANALYSIS_MS) {
+    return { ...entry.clip, aiAnalysisStatus: CLIP_STATUS.PROCESSING };
+  }
+  if (scenario() === "clip-ai-fail") return { ...entry.clip, aiAnalysisStatus: CLIP_STATUS.FAILED };
+  return {
+    ...entry.clip,
+    aiAnalysisStatus: CLIP_STATUS.COMPLETED,
+    aiGameDetected: entry.clip.game,
+    aiKeyMoments: [
+      { t: "0:04", label: "Takes first contact" },
+      { t: "0:11", label: "Double kill under pressure" },
+      { t: "0:19", label: "Closes out the round" },
+    ],
+    aiTags: ["clutch", "aim", "composure"],
+    aiQualityScore: 74,
+  };
 });
 
 // Fabiola's contract: public, optional `game` display name matched exactly, top 50 by rad
