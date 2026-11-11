@@ -10,7 +10,6 @@ const user = await prisma.user.create({
     email: `test-gamer-${stamp}@example.com`,
     username: `testgamer${stamp}`,
     displayName: "Test Gamer",
-    passwordHash: "test-only-not-for-login",
   },
 });
 
