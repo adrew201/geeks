@@ -10,6 +10,7 @@ import type { PaypalEvent } from "./service.js";
 import { captureCheckoutOrder } from "../payments/service.js";
 import { completeDonation, failDonation } from "../payments/donations.js";
 import { markWithdrawalPaid, reverseWithdrawal } from "../payments/wallet.js";
+import { onSubscriptionActivated, onSubscriptionEnded } from "../payments/subscriptions.js";
 
 /** Basis points, read from env in the webhook route. */
 export type Fees = {
@@ -77,6 +78,12 @@ export function makeHandlers(fees: Fees): Partial<Record<string, WebhookHandler>
       const donationId = await donationIdForCapture(tx, c);
       if (donationId) await failDonation(tx, donationId);
     },
+
+    // Subscriptions: these events are the only thing that changes User.tier.
+    "BILLING.SUBSCRIPTION.ACTIVATED": (tx, event) => onSubscriptionActivated(tx, event),
+    "BILLING.SUBSCRIPTION.CANCELLED": (tx, event) => onSubscriptionEnded(tx, event, "CANCELLED"),
+    "BILLING.SUBSCRIPTION.EXPIRED": (tx, event) => onSubscriptionEnded(tx, event, "EXPIRED"),
+    "BILLING.SUBSCRIPTION.SUSPENDED": (tx, event) => onSubscriptionEnded(tx, event, "SUSPENDED"),
 
     // Withdrawals: sender_item_id is our WITHDRAWAL wallet entry id (set in wallet.ts).
     "PAYMENT.PAYOUTS-ITEM.SUCCEEDED": async (tx, event) => {
