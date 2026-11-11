@@ -64,15 +64,17 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
     where: { voterId_clipId: { voterId, clipId } },
   });
   if (!existing) {
-    await prisma.swipeVote.create({ data: { voterId, clipId, voteType } });
-    await prisma.clip.update({
-      where: { id: clipId },
-      data:
-        direction === "UP"
-          ? { upvoteCount: { increment: 1 } }
-          : { downvoteCount: { increment: 1 } },
-    });
+    // recordVote writes the vote, Elo and counts, then recomputes the owner's rad score.
+    try {
+      await recordVote(clipId, voterId, voteType);
+    } catch (err) {
+      if ((err as { code?: string }).code === "P2025") {
+        throw Object.assign(new Error("voter not found"), { statusCode: 404 });
+      }
+      throw err;
+    }
   } else if (existing.voteType !== voteType) {
+    // Changed vote: swap the counts only. Elo isn't re-run for a flip.
     await prisma.$transaction([
       prisma.swipeVote.update({ where: { id: existing.id }, data: { voteType } }),
       prisma.clip.update({
@@ -83,16 +85,15 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
             : { upvoteCount: { decrement: 1 }, downvoteCount: { increment: 1 } },
       }),
     ]);
+    await recomputeRadScore(clip.gamerId, "Vote Changed");
   }
 
-  // Ranking is Fabiola's and still a stub that throws. The vote is saved
-  // regardless; ranking lights up when her functions land.
-  let radScore: number | null = null;
-  try {
-    await recordVote(clipId, voterId, voteType);
-    radScore = await recomputeRadScore(clip.gamerId);
-  } catch (err) {
-    console.log("ranking not ready yet:", String(err));
-  }
-  return { clip: await prisma.clip.findUniqueOrThrow({ where: { id: clipId } }), radScore };
+  const profile = await prisma.gamerProfile.findUnique({
+    where: { userId: clip.gamerId },
+    select: { radScore: true },
+  });
+  return {
+    clip: await prisma.clip.findUniqueOrThrow({ where: { id: clipId } }),
+    radScore: profile?.radScore ?? null,
+  };
 }
