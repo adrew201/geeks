@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createClip, getFeed, voteOnClip } from "./service.js";
+import { createClip, getFeed, getFeedPage, toApiClip, voteOnClip } from "./service.js";
 
 function sendError(reply: { code(n: number): any; send(e: unknown): unknown }, err: unknown) {
   const status =
@@ -40,13 +40,20 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
           durationSeconds?: number;
           thumbnailUrl?: string;
         };
-        return reply.code(201).send(await createClip(b));
+        return reply.code(201).send(toApiClip(await createClip(b)));
       } catch (err) {
         return sendError(reply, err);
       }
     }
   );
 
+  // README §14 feed: { items, nextCursor }.
+  app.get("/feed", async (req) => {
+    const q = req.query as { cursor?: string; game?: string };
+    return getFeedPage(q.cursor, q.game);
+  });
+
+  // Older raw feed, kept so existing callers don't break.
   app.get("/clips/feed", async (req) => {
     const game = (req.query as { game?: string }).game;
     return getFeed(game);
