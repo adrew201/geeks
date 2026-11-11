@@ -1,10 +1,17 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
-import { connection } from "../lib/queues.js";
 
-new Worker("clip-analysis", async (job) => {
-  console.log("clip-analysis job", job.id, job.data);
-}, { connection });
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error("Missing ANTHROPIC_API_KEY in backend .env");
+}
+import { connection } from "../lib/queues.js";
+import { handleClipAnalysis } from "./clipAnalysis.js";
+import { handleSkillSummary } from "./skillSummary.js";
+import { handleBountyVerification } from "./bountyVerification.js";
+
+new Worker("clip-analysis", handleClipAnalysis, { connection });
+new Worker("skill-summary", handleSkillSummary, { connection });
+new Worker("bounty-verification", handleBountyVerification, { connection });
 
 new Worker("bounty", async (job) => {
   console.log("bounty job", job.name, job.id);

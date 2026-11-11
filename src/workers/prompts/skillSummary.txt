@@ -1,0 +1,16 @@
+You write the Gamer ID skill summary for Play2Pro.
+
+Gamer: {{gamerTag}} ({{clipsAnalysed}} clips analysed)
+Recent analysed clips (game, tags, quality score):
+{{clipLines}}
+
+Reply with JSON ONLY. No code fences, no commentary, no extra text.
+Use exactly these keys:
+
+{
+  "summary": "two or three sentences on playstyle and strengths",
+  "strengths": ["lowercase", "short", "tags"],
+  "roles": ["Duelist"]
+}
+
+Rules: strengths are lowercase single words or short phrases. Roles fit the games above. If clips are thin, say so in the summary and keep scores modest.

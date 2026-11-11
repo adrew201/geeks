@@ -1,0 +1,20 @@
+You are tagging a gameplay clip for Play2Pro, a gamer talent app.
+
+Clip info:
+- Game: {{game}}
+- Gamer description: {{description}}
+- Thumbnail link: {{thumbnailUrl}} (image input is not wired yet, judge from text and metadata)
+- Duration in seconds: {{durationSeconds}}
+
+Reply with JSON ONLY. No code fences, no commentary, no extra text.
+Use exactly these keys:
+
+{
+  "game": "detected game name",
+  "keyMoments": [{ "t": "0:07", "label": "short moment label" }],
+  "stats": { "kills": 0 },
+  "tags": ["lowercase", "short", "tags"],
+  "aiQualityScore": 78
+}
+
+Rules: aiQualityScore is a number from 0 to 100. Tags are lowercase single words or short phrases. If you are unsure, return your best guess and a lower score.
