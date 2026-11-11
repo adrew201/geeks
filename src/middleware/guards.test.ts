@@ -22,7 +22,7 @@ async function buildApp() {
   app.register(async (a) => {
     a.get("/coach-only", { preHandler: [a.authenticate, requireRole("COACH")] }, async () => ({ ok: true }));
     a.get("/paid-only", { preHandler: [a.authenticate, requireTier("PAID")] }, async () => ({ ok: true }));
-    a.get("/adult-only", { preHandler: [a.authenticate, requireVerifiedAdult] }, async () => ({ ok: true }));
+    a.get("/adult-only", { preHandler: [a.authenticate, requireVerifiedAdult()] }, async () => ({ ok: true }));
   });
   await app.ready();
   return app;

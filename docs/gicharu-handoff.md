@@ -2,7 +2,7 @@
 
 Owner: Gicharu. Reviewer: Rabasa. Branch: `gicharu/webhook-verification`. Date: 11 Nov 2026.
 
-This file lists what was built, what has been tested, what the deployed demo still needs, and how to push. Design details are in [webhook-verification.md](webhook-verification.md). The day's log is in [gicharu-progress-2026-11-11.md](gicharu-progress-2026-11-11.md).
+This file lists what was built, what has been tested, what the deployed demo still needs, and how to push. The donation flow, added later the same day, has its own doc: [donations.md](donations.md). Design details are in [webhook-verification.md](webhook-verification.md). The day's log is in [gicharu-progress-2026-11-11.md](gicharu-progress-2026-11-11.md).
 
 ## What was built
 
@@ -12,7 +12,7 @@ This file lists what was built, what has been tested, what the deployed demo sti
 | `src/plugins/webhooks/service.ts`       | `recordAndHandle()`: stores the event and runs its handler in one transaction, skips repeat event IDs  |
 | `src/plugins/webhooks/index.ts`         | `POST /api/v1/webhooks/paypal`: raw body, verify, then dispatch to `makeHandlers(fees)`                |
 | `src/plugins/webhooks/handlers.ts`      | Placeholder `makeHandlers(fees)` returning `{}`. Rabasa's version replaces it at merge                 |
-| `src/middleware/guards.ts`              | `requireRole(...)`, `requireTier("PAID")`, `requireVerifiedAdult`, used as Fastify `preHandler`s       |
+| `src/middleware/guards.ts`              | `requireRole(...)`, `requireTier("PAID")`, `requireVerifiedAdult()`, used as Fastify `preHandler`s     |
 | `src/plugins/webhooks/webhooks.test.ts` | 17 tests                                                                                               |
 | `src/middleware/guards.test.ts`         | 5 tests                                                                                                |
 | `docs/webhook-verification.md`          | Design, request flow, handler contract                                                                 |
@@ -26,7 +26,7 @@ Using a guard:
 ```ts
 import { requireRole, requireVerifiedAdult } from "../../middleware/guards.js";
 
-app.post("/wallet/withdraw", { preHandler: [app.authenticate, requireVerifiedAdult] }, handler);
+app.post("/wallet/withdraw", { preHandler: [app.authenticate, requireVerifiedAdult()] }, handler);
 app.post("/communities", { preHandler: [app.authenticate, requireRole("COACH")] }, handler);
 ```
 
@@ -34,7 +34,7 @@ app.post("/communities", { preHandler: [app.authenticate, requireRole("COACH")] 
 | ---------------------- | ------------------------ | ---------------------------------------- |
 | `requireRole(...)`     | 403 `FORBIDDEN_ROLE`     | JWT role (role never changes)            |
 | `requireTier("PAID")`  | 403 `FORBIDDEN_TIER`     | `User.tier` from the database            |
-| `requireVerifiedAdult` | 403 `NOT_VERIFIED_ADULT` | `User.isVerifiedAdult` from the database |
+| `requireVerifiedAdult()` | 403 `NOT_VERIFIED_ADULT` | `User.isVerifiedAdult` from the database |
 
 ## What succeeded
 
@@ -103,6 +103,14 @@ Commit and push:
 git add src/plugins/webhooks/verify.ts src/plugins/webhooks/service.ts src/plugins/webhooks/index.ts src/plugins/webhooks/handlers.ts src/plugins/webhooks/webhooks.test.ts src/middleware/guards.ts src/middleware/guards.test.ts docs/webhook-verification.md docs/gicharu-progress-2026-11-11.md docs/gicharu-handoff.md
 git commit -m "feat(webhooks): verify PayPal signatures, run handlers in the event transaction, add route guards"
 git push -u origin gicharu/webhook-verification
+```
+
+Donations, committed separately:
+
+```sh
+git add src/plugins/payments/service.ts src/plugins/payments/donations.ts src/plugins/payments/index.ts src/plugins/payments/donations.test.ts src/plugins/webhooks/handlers.ts src/lib/prisma.ts docs/donations.md docs/gicharu-handoff.md
+git commit -m "feat(payments): donation push-to-pay with capture and wallet credit"
+git push
 ```
 
 Open the PR on GitHub against `main`. Only Rabasa merges.

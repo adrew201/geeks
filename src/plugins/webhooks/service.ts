@@ -30,15 +30,19 @@ class HandlerFailed extends Error {
 
 /**
  * Stores a verified event and runs its handler in one transaction.
- * A repeat event ID hits the unique index and returns DUPLICATE without running the handler.
+ * A repeat event ID returns DUPLICATE without running the handler: checked first, and the unique
+ * index on eventId catches two copies arriving at the same moment.
  * If the handler throws, the event row rolls back with it and the original error is rethrown,
  * so PayPal's retry starts clean.
  */
 export async function recordAndHandle(event: PaypalEvent, handler: WebhookHandler | undefined): Promise<Outcome> {
   const status = handler ? "PROCESSED" : "IGNORED";
   try {
-    await prisma.$transaction(
-      async (tx) => {
+    return await prisma.$transaction(
+      async (tx): Promise<Outcome> => {
+        // Check first: a failed insert would abort the Postgres transaction.
+        const seen = await tx.paypalWebhookEvent.findUnique({ where: { eventId: event.id }, select: { id: true } });
+        if (seen) return "DUPLICATE";
         await tx.paypalWebhookEvent.create({
           data: {
             eventId: event.id,
@@ -50,16 +54,16 @@ export async function recordAndHandle(event: PaypalEvent, handler: WebhookHandle
             signatureValid: true,
           },
         });
-        if (!handler) return;
+        if (!handler) return status;
         try {
           await handler(tx, event);
         } catch (e) {
           throw new HandlerFailed(e);
         }
+        return status;
       },
       { timeout: TX_TIMEOUT_MS },
     );
-    return status;
   } catch (e) {
     if (e instanceof HandlerFailed) throw e.original;
     if ((e as { code?: string }).code === "P2002") return "DUPLICATE";
