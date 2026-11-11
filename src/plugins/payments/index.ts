@@ -2,6 +2,16 @@ import type { FastifyPluginAsync } from "fastify";
 import { createDonation, getDonationOrder } from "./donations.js";
 import { getWallet, withdraw } from "./wallet.js";
 import { requireVerifiedAdult } from "../../middleware/guards.js";
+import { requestCancel, startSubscription, type PlanName } from "./subscriptions.js";
+
+const subscribeSchema = {
+  body: {
+    type: "object",
+    required: ["plan"],
+    additionalProperties: false,
+    properties: { plan: { type: "string", enum: ["PAID_GAMER", "COACH"] } },
+  },
+} as const;
 
 const withdrawSchema = {
   body: {
@@ -60,6 +70,18 @@ const paymentsPlugin: FastifyPluginAsync = async (app) => {
       return reply.code(201).send(await withdraw(req.user.sub, amount));
     },
   );
+
+  // Starts a subscription; returns the PayPal approval link. Only the webhook makes the user PAID.
+  app.post("/subscriptions", { schema: subscribeSchema, preHandler: app.authenticate }, async (req, reply) => {
+    const { plan } = req.body as { plan: PlanName };
+    const created = await startSubscription({ id: req.user.sub, role: req.user.role }, plan);
+    return reply.code(201).send(created);
+  });
+
+  // Requests cancellation; the user keeps PAID until PayPal's CANCELLED webhook arrives.
+  app.post("/subscriptions/me/cancel", { preHandler: app.authenticate }, async (req, reply) => {
+    return reply.code(202).send(await requestCancel(req.user.sub));
+  });
 };
 
 export default paymentsPlugin;
