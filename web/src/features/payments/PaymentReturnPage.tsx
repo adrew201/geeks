@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { ArrowLeft, Flame, RefreshCw, SearchX } from "lucide-react";
 import { ROUTES } from "../../components/layout/nav-config.ts";
 import { Button, ButtonLink } from "../../components/ui/Button.tsx";
@@ -135,4 +135,15 @@ function OrderReturn({ orderId, cancelledHint }: { orderId: string; cancelledHin
   return (
     <PaymentStatus view={view} copy={copy} recipientName={recipientName} summary={summary} actions={actions} note={note} />
   );
+}
+
+/**
+ * /pay/cancel → /pay/return?cancelled=1, keeping PayPal's `token`. The backend hasn't set its
+ * cancel_url yet (payments service is still stubbed), so both URLs work.
+ */
+export function PaymentCancelRedirect() {
+  const [params] = useSearchParams();
+  const next = new URLSearchParams(params);
+  next.set(PAYPAL_RETURN_PARAM.CANCELLED, "1");
+  return <Navigate to={`${ROUTES.payReturn}?${next.toString()}`} replace />;
 }

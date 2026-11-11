@@ -34,6 +34,10 @@ export const ROUTES = {
   gamerProfile: "/gamers/:id",
   /** PayPal return URL (page 15 repurposed, docs/ui-audit.md §9). */
   payReturn: "/pay/return",
+  /** Alias for PayPal's cancel_url: redirects to /pay/return?cancelled=1 with the same query. */
+  payCancel: "/pay/cancel",
+  /** Subscription upgrade (Paid Gamer / Coach). The Arena house ad links here. */
+  upgrade: "/upgrade",
   privacy: "/privacy",
   terms: "/terms",
 } as const;

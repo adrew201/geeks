@@ -130,8 +130,8 @@ route("GET", "/health", () => ({ status: "ok", db: "ok", redis: "ok" }));
  *
  * Leaderboard, signed in as gamer@play2pro.test (ShadowViper, Valorant):
  *   default                      All Games and Valorant include ShadowViper (highlighted, your
- *                                position shown); EA FC 25, Fortnite and League of Legends
- *                                don't (not ShadowViper's games)
+ *                                position shown); Call of Duty Mobile doesn't (not
+ *                                ShadowViper's game)
  *   ?mock=leaderboard-me-outside the signed-in gamer is left out of every board (below the top 50)
  *   ?mock=leaderboard-fail       500
  *
@@ -265,6 +265,11 @@ route("POST", "/auth/signup", ({ body }): AuthResponse => {
   }
   const appRole = fromApiRole(request.role);
   if (!appRole) throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Choose a valid role.");
+  // Same rule as the API (src/plugins/auth/index.ts): displayName is required, 1-60 characters.
+  const displayName = typeof request.displayName === "string" ? request.displayName.trim() : "";
+  if (displayName.length < 1 || displayName.length > 60) {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Display name must be 1 to 60 characters.");
+  }
   const account: User = {
     id: `usr_new_${mockAccounts.length + 1}`,
     email: String(request.email).trim().toLowerCase(),

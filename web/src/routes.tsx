@@ -10,7 +10,7 @@ import NewBountyPage from "./features/bounties/NewBountyPage.tsx";
 import SignupPage from "./features/auth/SignupPage.tsx";
 import FeedPage from "./features/feed/FeedPage.tsx";
 import LeaderboardPage from "./features/leaderboard/LeaderboardPage.tsx";
-import PaymentReturnPage from "./features/payments/PaymentReturnPage.tsx";
+import PaymentReturnPage, { PaymentCancelRedirect } from "./features/payments/PaymentReturnPage.tsx";
 import GamerProfilePage from "./features/profile/GamerProfilePage.tsx";
 import PassportPage from "./features/profile/PassportPage.tsx";
 import ProfileLayout from "./features/profile/ProfileLayout.tsx";
@@ -19,13 +19,15 @@ import AuthLayout from "./layouts/AuthLayout.tsx";
 import CheckoutLayout from "./layouts/CheckoutLayout.tsx";
 import PublicLayout from "./layouts/PublicLayout.tsx";
 import { PageLoading } from "./components/ui/PageLoading.tsx";
+import ComingSoonPage from "./pages/ComingSoonPage.tsx";
 import HomePage from "./pages/HomePage.tsx";
 import NotFoundPage from "./pages/NotFoundPage.tsx";
 import { ROLE } from "./types/api.ts";
 
 // Per docs/instructions.md: a real page is added only once it renders with real or mocked
-// data. Planned nav routes (docs/ui-audit.md §9) render pages/ComingSoonPage.tsx behind the
-// same role guards they'll keep, so nav links never hit a blank screen (none left right now).
+// data. Planned routes that something already links to (docs/ui-audit.md §9) render
+// ComingSoonPage behind the guards they'll keep, so links never hit Not Found: /upgrade (the
+// Arena house ad), /privacy and /terms (the footer).
 // Dashboards (step 7: /dashboard, /wallet, /discover) are lazy routes, so AG Grid and
 // AG Charts load only when one of them opens.
 // Payments: checkout starts in a modal (features/payments/PaymentModal) on the page that
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
     element: <PublicLayout />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: ROUTES.privacy, element: <ComingSoonPage title="Privacy Policy" /> },
+      { path: ROUTES.terms, element: <ComingSoonPage title="Terms of Service" /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -63,7 +67,10 @@ export const router = createBrowserRouter([
         // PayPal return/cancel URL (README §15.1 step 3). Any signed-in payer; a signed-out
         // one logs in and comes back with the same query.
         element: <CheckoutLayout />,
-        children: [{ path: ROUTES.payReturn, element: <PaymentReturnPage /> }],
+        children: [
+          { path: ROUTES.payReturn, element: <PaymentReturnPage /> },
+          { path: ROUTES.payCancel, element: <PaymentCancelRedirect /> },
+        ],
       },
       {
         element: <AppLayout />,
@@ -74,6 +81,7 @@ export const router = createBrowserRouter([
           // the API but sits behind login in the app).
           { path: ROUTES.arena, element: <FeedPage /> },
           { path: ROUTES.leaderboard, element: <LeaderboardPage /> },
+          { path: ROUTES.upgrade, element: <ComingSoonPage title="Upgrade" /> },
           {
             element: <RequireAuth roles={[ROLE.GAMER]} />,
             children: [
