@@ -16,7 +16,6 @@ export const env = {
    * allows the deployed site).
    */
   apiUrl: raw.VITE_API_URL ?? "http://localhost:3000",
-  apiUrl: raw.VITE_API_URL ?? "http://localhost:3000",
   paypalClientId: raw.VITE_PAYPAL_CLIENT_ID ?? "",
   /**
    * Serve API calls from src/mocks instead of the network.
