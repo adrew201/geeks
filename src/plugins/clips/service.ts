@@ -1,3 +1,4 @@
+import type { Clip } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { clipAnalysisQueue } from "../../lib/queues.js";
 import { recordVote, recomputeRadScore } from "../../lib/ranking/index.js";
@@ -39,6 +40,56 @@ export async function createClip(input: CreateClipInput) {
   return clip;
 }
 
+// README §13 Clip shape that web/src/types/api.ts reads. DB column names differ.
+export function toApiClip(row: Clip) {
+  return {
+    id: row.id,
+    ownerId: row.gamerId,
+    url: row.videoUrl,
+    description: row.description ?? "",
+    game: row.game,
+    tags: row.aiTags,
+    stats: null, // not stored yet
+    keyMoments: Array.isArray(row.aiKeyMoments) ? row.aiKeyMoments : [],
+    aiQualityScore: row.aiQualityScore,
+    eloRating: row.eloRating,
+    status: row.aiAnalysisStatus === "COMPLETED" ? "ANALYSED" : "PENDING",
+  };
+}
+
+const FEED_PAGE_SIZE = 20;
+
+// GET /api/v1/feed?cursor= (README §14). Cursor is an offset into the Elo-ranked list.
+// Ads and "exclude own clips" come with the ads and auth work.
+export async function getFeedPage(cursor?: string, game?: string) {
+  const skip = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
+  const rows = await prisma.clip.findMany({
+    where: { status: "ACTIVE", ...(game ? { game } : {}) },
+    orderBy: [{ eloRating: "desc" }, { createdAt: "desc" }],
+    skip,
+    take: FEED_PAGE_SIZE + 1,
+    include: {
+      gamer: {
+        select: { displayName: true, region: true, profile: { select: { gamerTag: true, radScore: true } } },
+      },
+    },
+  });
+  const page = rows.slice(0, FEED_PAGE_SIZE);
+  return {
+    items: page.map(({ gamer, ...clip }) => ({
+      kind: "clip" as const,
+      clip: toApiClip(clip),
+      owner: {
+        gamerId: clip.gamerId,
+        gamerTag: gamer.profile?.gamerTag ?? gamer.displayName,
+        region: gamer.region,
+        radScore: gamer.profile?.radScore ?? 0,
+      },
+    })),
+    nextCursor: rows.length > FEED_PAGE_SIZE ? String(skip + FEED_PAGE_SIZE) : null,
+  };
+}
+
 export function getFeed(game?: string) {
   return prisma.clip.findMany({
     where: { status: "ACTIVE", ...(game ? { game } : {}) },
@@ -68,8 +119,12 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
     try {
       await recordVote(clipId, voterId, voteType);
     } catch (err) {
-      if ((err as { code?: string }).code === "P2025") {
+      const code = (err as { code?: string }).code;
+      if (code === "P2025") {
         throw Object.assign(new Error("voter not found"), { statusCode: 404 });
+      }
+      if (code === "P2002") {
+        throw Object.assign(new Error("already voted"), { statusCode: 409 });
       }
       throw err;
     }
@@ -86,6 +141,9 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
       }),
     ]);
     await recomputeRadScore(clip.gamerId, "Vote Changed");
+  } else {
+    // Same vote again: web treats 409 as "already voted".
+    throw Object.assign(new Error("already voted"), { statusCode: 409 });
   }
 
   const profile = await prisma.gamerProfile.findUnique({
@@ -93,7 +151,7 @@ export async function voteOnClip({ clipId, voterId, direction }: VoteInput) {
     select: { radScore: true },
   });
   return {
-    clip: await prisma.clip.findUniqueOrThrow({ where: { id: clipId } }),
+    clip: toApiClip(await prisma.clip.findUniqueOrThrow({ where: { id: clipId } })),
     radScore: profile?.radScore ?? null,
   };
 }
