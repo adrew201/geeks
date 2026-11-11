@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
-import { createOrder, type Capture } from "./service.js";
+import { captureCheckoutOrder, createOrder, PaypalError, type Capture } from "./service.js";
 
 // Donation flow (README 15.1). The fee is fixed when the donation is created; the wallet is
 // credited only from a PayPal capture (capture response or verified webhook), never from the client.
@@ -15,10 +15,10 @@ function feeBps(recipientTier: "FREE" | "PAID"): number {
     : Number(process.env.DONATION_FEE_BPS ?? 500);
 }
 
-/** `gamerId` may be the recipient's GamerProfile id (what the web app sends) or their user id. */
-export async function createDonation(input: { donorId: string; gamerId: string; amountCents: number }) {
+/** `recipientId` is the recipient's User id (Rabasa's contract). */
+export async function createDonation(input: { donorId: string; recipientId: string; amountCents: number; message?: string }) {
   const recipient = await prisma.user.findFirst({
-    where: { role: "GAMER", OR: [{ id: input.gamerId }, { profile: { id: input.gamerId } }] },
+    where: { id: input.recipientId, role: "GAMER" },
     select: { id: true, tier: true, isVerifiedAdult: true },
   });
   if (!recipient) throw new AppError(404, "GAMER_NOT_FOUND", "Gamer not found");
@@ -38,6 +38,7 @@ export async function createDonation(input: { donorId: string; gamerId: string; 
       feeCents,
       netCents: input.amountCents - feeCents,
       currency: currency(),
+      message: input.message?.trim() || null,
     },
   });
 
@@ -56,7 +57,31 @@ export async function createDonation(input: { donorId: string; gamerId: string; 
     throw Object.assign(new AppError(502, "PAYPAL_UNAVAILABLE", "PayPal didn't respond, please try again"), { cause: e });
   }
   await prisma.donation.update({ where: { id: donation.id }, data: { paypalOrderId: order.orderId } });
-  return order;
+  return { donationId: donation.id, orderId: order.orderId, approvalUrl: order.approvalUrl };
+}
+
+/**
+ * The payer is back from PayPal: capture the order and credit the gamer (Rabasa's
+ * POST /donations/capture). Only the donor may call it. Calling it again, or after the
+ * webhook already captured, returns the current status without capturing twice.
+ */
+export async function captureDonation(orderId: string, userId: string) {
+  const donation = await prisma.donation.findUnique({ where: { paypalOrderId: orderId } });
+  if (!donation || donation.donorId !== userId) throw new AppError(404, "NOT_FOUND", "Order not found");
+  if (donation.status === "PENDING") {
+    let capture: Capture;
+    try {
+      capture = await captureCheckoutOrder(orderId, `capture-${donation.id}`);
+    } catch (e) {
+      if (e instanceof PaypalError && e.issue === "ORDER_NOT_APPROVED") {
+        throw new AppError(409, "ORDER_NOT_APPROVED", "PayPal hasn't approved this payment yet");
+      }
+      throw Object.assign(new AppError(502, "PAYPAL_UNAVAILABLE", "PayPal didn't respond, please try again"), { cause: e });
+    }
+    await prisma.$transaction((tx) => completeDonation(tx, donation.id, capture));
+  }
+  const current = await prisma.donation.findUnique({ where: { id: donation.id }, select: { status: true } });
+  return { donationId: donation.id, orderId, status: current?.status ?? donation.status };
 }
 
 /**

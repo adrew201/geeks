@@ -35,7 +35,7 @@ export function DonationModal({ open, onClose, gamer, onUnauthenticated }: Donat
       canSubmit={amount !== null}
       createOrder={(signal) => {
         if (amount === null) return Promise.reject(new Error("No amount chosen."));
-        return createDonation({ gamerId: gamer.id, amount }, signal);
+        return createDonation({ recipientId: gamer.userId, amountCents: amount }, signal);
       }}
       checkout={{
         purpose: PAYMENT_PURPOSE.DONATION,

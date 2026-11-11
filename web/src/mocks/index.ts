@@ -566,7 +566,7 @@ route("POST", "/api/v1/donations", ({ body }): DonationResponse => {
     throw new ApiError(502, API_ERROR_CODE.PAYPAL_ERROR, "PayPal is unavailable. Try again.");
   }
   const request = (body ?? {}) as Partial<DonationRequest>;
-  const gamer = findGamer(String(request.gamerId ?? ""));
+  const gamer = findGamer(String(request.recipientId ?? ""));
   if (scenario() === "donate-ineligible" || gamer.isVerifiedAdult === false) {
     throw new ApiError(
       403,
@@ -574,7 +574,7 @@ route("POST", "/api/v1/donations", ({ body }): DonationResponse => {
       "This gamer needs a verified adult PayPal account to receive donations.",
     );
   }
-  if (!Number.isInteger(request.amount) || (request.amount ?? 0) < 100) {
+  if (!Number.isInteger(request.amountCents) || (request.amountCents ?? 0) < 100) {
     throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Amount must be whole cents, at least 100.");
   }
   const orderId = `MOCK-ORDER-${mockOrders.size + 1}-${Date.now().toString(36).toUpperCase()}`;
@@ -582,14 +582,28 @@ route("POST", "/api/v1/donations", ({ body }): DonationResponse => {
     order: {
       orderId,
       status: PAYMENT_ORDER_STATUS.CREATED,
-      amount: request.amount,
+      amount: request.amountCents,
       purpose: PAYMENT_PURPOSE.DONATION,
       gamerId: gamer.id,
       gamerTag: gamer.gamerTags[0],
       createdAt: new Date().toISOString(),
     },
   });
-  return { approvalUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`, orderId };
+  return {
+    donationId: `MOCK-DONATION-${mockOrders.size}`,
+    orderId,
+    approvalUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`,
+  };
+});
+
+// Rabasa's return route. The mock order completes on its own timer (GET /orders/:id below),
+// so this only checks the order exists.
+route("POST", "/api/v1/donations/capture", ({ body }) => {
+  if (!getSession()) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  const orderId = String((body as { orderId?: unknown } | undefined)?.orderId ?? "");
+  const entry = mockOrders.get(orderId);
+  if (!entry) notFound("Order not found.");
+  return { orderId, status: entry!.order.status };
 });
 
 const ORDER_SCENARIO_STATUS: Partial<Record<MockScenario, PaymentOrder["status"]>> = {

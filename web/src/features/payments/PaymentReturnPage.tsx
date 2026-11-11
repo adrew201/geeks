@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { ArrowLeft, Flame, RefreshCw, SearchX } from "lucide-react";
 import { ROUTES } from "../../components/layout/nav-config.ts";
@@ -7,6 +7,7 @@ import { Card } from "../../components/ui/Card.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { formatMoney } from "../../lib/format-money.ts";
 import { PAYMENT_PURPOSE, PAYPAL_RETURN_PARAM } from "../../types/api.ts";
+import { captureDonation } from "./api.ts";
 import { loadCheckoutContext } from "./approval.ts";
 import { PaymentStatus, type PaymentSummaryRow } from "./PaymentStatus.tsx";
 import { PURPOSE_COPY, isTerminal, paymentView } from "./payment-view.ts";
@@ -48,6 +49,18 @@ function OrderReturn({ orderId, cancelledHint }: { orderId: string; cancelledHin
   const status = useOrderStatus(orderId, { once: cancelledHint });
   const context = useMemo(() => loadCheckoutContext(orderId), [orderId]);
   const view = paymentView(status, cancelledHint);
+  const { refresh } = status;
+
+  // Donations: once per visit, ask the API to capture (Rabasa's POST /donations/capture), then
+  // re-check the status. Polling carries on regardless, and a webhook captures as a backup,
+  // so a failed call here only delays the result. Skipped for cancels and other purposes.
+  const captureStarted = useRef(false);
+  const capturePurpose = context?.purpose ?? PAYMENT_PURPOSE.DONATION;
+  useEffect(() => {
+    if (cancelledHint || capturePurpose !== PAYMENT_PURPOSE.DONATION || captureStarted.current) return;
+    captureStarted.current = true;
+    captureDonation(orderId).then(refresh, () => {});
+  }, [orderId, cancelledHint, capturePurpose, refresh]);
 
   const purpose = status.order?.purpose ?? context?.purpose ?? PAYMENT_PURPOSE.DONATION;
   const copy = PURPOSE_COPY[purpose] ?? PURPOSE_COPY[PAYMENT_PURPOSE.DONATION];

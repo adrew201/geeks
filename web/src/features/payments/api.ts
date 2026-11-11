@@ -7,9 +7,10 @@ import {
   type PaymentOrder,
 } from "../../types/api.ts";
 
-// README §14 (Rabasa):
-//   POST /api/v1/donations   any user   { gamerId, amount } → { approvalUrl, orderId }
-//   GET  /api/v1/orders/:id  UNCONFIRMED (see PaymentOrder in types/api.ts)
+// Rabasa's API:
+//   POST /api/v1/donations          any user    { recipientId, amountCents, message? } → { donationId, orderId, approvalUrl }
+//   POST /api/v1/donations/capture  donor only  { orderId }, called once on /pay/return after PayPal
+//   GET  /api/v1/orders/:id         UNCONFIRMED (see PaymentOrder in types/api.ts)
 // Never log the approval URL or the response: the URL carries the PayPal order token.
 
 /** What every PayPal checkout start returns. Subscriptions map `subscriptionId` onto `orderId`. */
@@ -20,6 +21,14 @@ export interface PaymentApproval {
 
 export function createDonation(body: DonationRequest, signal?: AbortSignal): Promise<DonationResponse> {
   return api.post<DonationResponse>("/api/v1/donations", body, { signal });
+}
+
+/**
+ * The payer is back from PayPal: ask the API to capture the donation. The API only credits the
+ * gamer from PayPal's capture result, never because this call was made, and a repeat is harmless.
+ */
+export function captureDonation(orderId: string, signal?: AbortSignal): Promise<unknown> {
+  return api.post<unknown>("/api/v1/donations/capture", { orderId }, { signal });
 }
 
 /** UNCONFIRMED endpoint. Change the path here only. */

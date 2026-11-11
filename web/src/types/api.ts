@@ -466,14 +466,17 @@ export interface LeaderboardResponse {
 /* Payments (README §15)                                                */
 /* ------------------------------------------------------------------ */
 
+/** POST /api/v1/donations, per Rabasa's API. `recipientId` is the recipient's User id (GamerProfile.userId). */
 export interface DonationRequest {
-  gamerId: string;
-  amount: Cents;
+  recipientId: string;
+  amountCents: Cents;
+  message?: string;
 }
 
 export interface DonationResponse {
-  approvalUrl: string;
+  donationId: string;
   orderId: string;
+  approvalUrl: string;
 }
 
 /**

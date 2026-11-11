@@ -35,14 +35,8 @@ const db = vi.hoisted(() => {
     },
   };
   const user = {
-    findFirst: async ({ where }: { where: { role: string; OR: [{ id: string }, { profile: { id: string } }] } }) => {
-      const [byId, byProfile] = where.OR;
-      return (
-        state.users.find(
-          (u) => u.role === where.role && (u.id === byId.id || (u.profile as Row | undefined)?.id === byProfile.profile.id),
-        ) ?? null
-      );
-    },
+    findFirst: async ({ where }: { where: { id: string; role: string } }) =>
+      state.users.find((u) => u.role === where.role && u.id === where.id) ?? null,
   };
   const walletEntry = {
     create: async ({ data }: { data: Row }) => {
@@ -51,12 +45,17 @@ const db = vi.hoisted(() => {
       return data;
     },
   };
-  return { state, prisma: { user, donation, walletEntry } };
+  const tx = { user, donation, walletEntry };
+  return { state, prisma: { ...tx, $transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx) } };
 });
-const paypal = vi.hoisted(() => ({
-  createOrder: vi.fn(),
-  captureCheckoutOrder: vi.fn(),
-}));
+const paypal = vi.hoisted(() => {
+  class PaypalError extends Error {
+    constructor(public status: number, public issue?: string) {
+      super(`PayPal ${status}`);
+    }
+  }
+  return { createOrder: vi.fn(), captureCheckoutOrder: vi.fn(), PaypalError };
+});
 
 vi.mock("../../lib/prisma.js", () => ({ prisma: db.prisma }));
 vi.mock("./service.js", () => paypal);
@@ -102,9 +101,9 @@ beforeEach(() => {
 
 describe("POST /api/v1/donations", () => {
   it("creates a pending donation and returns the PayPal approval link", async () => {
-    const res = await donate({ gamerId: ADULT_PROFILE, amount: 500 });
+    const res = await donate({ recipientId: ADULT, amountCents: 500 });
     expect(res.statusCode).toBe(201);
-    expect(res.json()).toEqual({ orderId: "ORDER-1", approvalUrl: expect.stringContaining("paypal.com") });
+    expect(res.json()).toEqual({ donationId: db.state.donations[0].id, orderId: "ORDER-1", approvalUrl: expect.stringContaining("paypal.com") });
     expect(db.state.donations[0]).toMatchObject({
       donorId: DONOR, recipientGamerId: ADULT, amountCents: 500, feeCents: 25, netCents: 475, status: "PENDING", paypalOrderId: "ORDER-1",
     });
@@ -115,12 +114,12 @@ describe("POST /api/v1/donations", () => {
 
   it("charges paid gamers the lower fee", async () => {
     db.state.users[1].tier = "PAID";
-    await donate({ gamerId: ADULT, amount: 1000 });
+    await donate({ recipientId: ADULT, amountCents: 1000 });
     expect(db.state.donations[0]).toMatchObject({ feeCents: 25, netCents: 975 });
   });
 
   it("returns 403 NOT_VERIFIED_ADULT when the recipient is a minor, without calling PayPal", async () => {
-    const res = await donate({ gamerId: MINOR, amount: 500 });
+    const res = await donate({ recipientId: MINOR, amountCents: 500 });
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe("NOT_VERIFIED_ADULT");
     expect(paypal.createOrder).not.toHaveBeenCalled();
@@ -128,39 +127,75 @@ describe("POST /api/v1/donations", () => {
   });
 
   it("lets an unverified donor give to a verified gamer", async () => {
-    expect((await donate({ gamerId: ADULT, amount: 500 }, DONOR)).statusCode).toBe(201);
+    expect((await donate({ recipientId: ADULT, amountCents: 500 }, DONOR)).statusCode).toBe(201);
   });
 
   it("rejects donating to yourself", async () => {
-    const res = await donate({ gamerId: ADULT, amount: 500 }, ADULT);
+    const res = await donate({ recipientId: ADULT, amountCents: 500 }, ADULT);
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe("CANNOT_DONATE_TO_SELF");
   });
 
   it("rejects amounts outside $1 to $500 and unknown gamers", async () => {
-    expect((await donate({ gamerId: ADULT, amount: 99 })).statusCode).toBe(400);
-    expect((await donate({ gamerId: ADULT, amount: 50_001 })).statusCode).toBe(400);
-    expect((await donate({ gamerId: ADULT, amount: 5.5 })).statusCode).toBe(400);
-    expect((await donate({ gamerId: "55555555-5555-4555-8555-555555555555", amount: 500 })).statusCode).toBe(404);
+    expect((await donate({ recipientId: ADULT, amountCents: 99 })).statusCode).toBe(400);
+    expect((await donate({ recipientId: ADULT, amountCents: 50_001 })).statusCode).toBe(400);
+    expect((await donate({ recipientId: ADULT, amountCents: 5.5 })).statusCode).toBe(400);
+    expect((await donate({ recipientId: "55555555-5555-4555-8555-555555555555", amountCents: 500 })).statusCode).toBe(404);
   });
 
   it("requires a login", async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: "POST", url: "/api/v1/donations", payload: { gamerId: ADULT, amount: 500 } });
+    const res = await app.inject({ method: "POST", url: "/api/v1/donations", payload: { recipientId: ADULT, amountCents: 500 } });
     expect(res.statusCode).toBe(401);
   });
 
   it("marks the donation FAILED and returns 502 when PayPal is down", async () => {
     paypal.createOrder.mockRejectedValue(new Error("timeout"));
-    const res = await donate({ gamerId: ADULT, amount: 500 });
+    const res = await donate({ recipientId: ADULT, amountCents: 500 });
     expect(res.statusCode).toBe(502);
     expect(db.state.donations[0].status).toBe("FAILED");
   });
 });
 
+describe("POST /api/v1/donations/capture", () => {
+  const capture = { captureId: "CAP-1", status: "COMPLETED", amountCents: 500, currency: "USD" };
+  async function captureAs(sub: string, orderId = "ORDER-1") {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub, role: "GAMER", tier: "FREE" });
+    return app.inject({ method: "POST", url: "/api/v1/donations/capture", payload: { orderId }, headers: { authorization: `Bearer ${token}` } });
+  }
+
+  it("captures for the donor and credits the gamer once, even when called twice", async () => {
+    await donate({ recipientId: ADULT, amountCents: 500 });
+    paypal.captureCheckoutOrder.mockResolvedValue(capture);
+    const first = await captureAs(DONOR);
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ orderId: "ORDER-1", status: "COMPLETED" });
+    const second = await captureAs(DONOR);
+    expect(second.json().status).toBe("COMPLETED");
+    expect(paypal.captureCheckoutOrder).toHaveBeenCalledTimes(1);
+    expect(db.state.wallet).toHaveLength(2);
+  });
+
+  it("returns 404 for anyone but the donor, and for unknown orders", async () => {
+    await donate({ recipientId: ADULT, amountCents: 500 });
+    expect((await captureAs(MINOR)).statusCode).toBe(404);
+    expect((await captureAs(DONOR, "ORDER-X")).statusCode).toBe(404);
+    expect(paypal.captureCheckoutOrder).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when the payer hasn't approved yet, and leaves the donation PENDING", async () => {
+    await donate({ recipientId: ADULT, amountCents: 500 });
+    paypal.captureCheckoutOrder.mockRejectedValue(new paypal.PaypalError(422, "ORDER_NOT_APPROVED"));
+    const res = await captureAs(DONOR);
+    expect(res.statusCode).toBe(409);
+    expect(db.state.donations[0].status).toBe("PENDING");
+  });
+});
+
 describe("GET /api/v1/orders/:id", () => {
   it("shows the donor the status, and hides it from other users", async () => {
-    await donate({ gamerId: ADULT, amount: 500 });
+    await donate({ recipientId: ADULT, amountCents: 500 });
     const app = await buildApp();
     const as = (sub: string) => ({ authorization: `Bearer ${app.jwt.sign({ sub, role: "GAMER", tier: "FREE" })}` });
     const mine = await app.inject({ method: "GET", url: "/api/v1/orders/ORDER-1", headers: as(DONOR) });
@@ -175,7 +210,7 @@ describe("donation webhook handlers", () => {
   const capture = { captureId: "CAP-1", status: "COMPLETED", amountCents: 500, currency: "USD" };
 
   async function pendingDonation() {
-    await donate({ gamerId: ADULT, amount: 500 });
+    await donate({ recipientId: ADULT, amountCents: 500 });
     return db.state.donations[0];
   }
 
