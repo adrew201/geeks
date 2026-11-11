@@ -1,5 +1,17 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createDonation, getDonationOrder } from "./donations.js";
+import { getWallet, withdraw } from "./wallet.js";
+import { requireVerifiedAdult } from "../../middleware/guards.js";
+
+const withdrawSchema = {
+  body: {
+    type: "object",
+    required: ["amount"],
+    additionalProperties: false,
+    // Integer cents, at least $1. The upper limit is the wallet balance, checked in withdraw().
+    properties: { amount: { type: "integer", minimum: 100 } },
+  },
+} as const;
 
 const donationSchema = {
   body: {
@@ -35,6 +47,19 @@ const paymentsPlugin: FastifyPluginAsync = async (app) => {
     const { id } = req.params as { id: string };
     return getDonationOrder(id, req.user.sub);
   });
+
+  // Own wallet only: there is no :userId, the user comes from the token.
+  app.get("/wallet", { preHandler: app.authenticate }, async (req) => getWallet(req.user.sub));
+
+  // README 18: withdrawing needs a verified adult. Money goes to the PayPal email stored on the user.
+  app.post(
+    "/wallet/withdraw",
+    { schema: withdrawSchema, preHandler: [app.authenticate, requireVerifiedAdult()] },
+    async (req, reply) => {
+      const { amount } = req.body as { amount: number };
+      return reply.code(201).send(await withdraw(req.user.sub, amount));
+    },
+  );
 };
 
 export default paymentsPlugin;
