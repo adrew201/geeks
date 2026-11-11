@@ -9,7 +9,7 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { TrustBadge } from "../../components/ui/TrustBadge.tsx";
 import { cn } from "../../lib/cn.ts";
-import type { Clip } from "../../types/api.ts";
+import { CLIP_STATUS, type Clip } from "../../types/api.ts";
 import { SectionHeader } from "./ProfileParts.tsx";
 import { clipSource, isClipAnalysed, safeClipUrl } from "./profile-model.ts";
 import type { DashboardStatus } from "./use-gamer-profile.ts";
@@ -162,11 +162,17 @@ function ClipLink({ clip, className, children }: { clip: Clip; className: string
   );
 }
 
+/** Seeded clips stay PENDING (never queued), so PENDING reads as "not yet assessed", not "pending". */
+const ANALYSIS_TEXT: Record<string, string> = {
+  [CLIP_STATUS.PROCESSING]: "AI analysis running",
+  [CLIP_STATUS.FAILED]: "AI analysis failed",
+};
+
 function AnalysisTag({ clip, size }: { clip: Clip; size: "md" | "sm" }) {
   return isClipAnalysed(clip) ? (
     <TrustBadge level="ai" size={size} />
   ) : (
-    <span className="text-10 text-fg-muted">AI analysis pending</span>
+    <span className="text-10 text-fg-muted">{ANALYSIS_TEXT[clip.status] ?? "Not yet AI-assessed"}</span>
   );
 }
 
