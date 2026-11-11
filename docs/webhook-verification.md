@@ -39,7 +39,7 @@ This change adds `POST /api/v1/webhooks/paypal`. The route checks every PayPal w
 | 8    | Handler throws                                     | 500      | Event row rolled back with the handler's writes  |
 | 9    | Handler succeeds                                   | 200      | Row with status PROCESSED, plus the handler's writes |
 
-Duplicates are caught by the unique index on `eventId`. If two deliveries of the same event arrive at once, the second insert waits for the first transaction. It then either sees the committed row (duplicate) or proceeds if the first rolled back.
+Duplicates are caught by looking up `eventId` first, inside the transaction, before inserting. This is what Rabasa's handoff asks for (G3), because a failed insert aborts the Postgres transaction. If two deliveries of the same event arrive at the same moment, both lookups miss. The unique index on `eventId` then makes the second insert wait for the first transaction. It fails as a duplicate if the first committed, or proceeds if the first rolled back.
 
 A unique-constraint error thrown by a handler, for example from `WalletEntry`, counts as a handler failure (500), not as a duplicate event.
 
