@@ -1,4 +1,4 @@
-// Fabiola: 15 gamers, 2 coaches, 1 sponsor, 40 clips with votes.
+// Fabiola: 14 gamers (7 Valorant, 7 Call of Duty Mobile), 2 coaches, 1 sponsor, 40 clips with votes.
 // Rerunnable: deletes only @seed.play2pro.test users, then recreates them. Same data every run.
 import "dotenv/config";
 import type { Role, Tier } from "@prisma/client";
@@ -9,12 +9,55 @@ import { getLeaderboard } from "../src/lib/ranking/leaderboard.js";
 
 const SEED_DOMAIN = "seed.play2pro.test";
 
-// PLACEHOLDER: replace with the team's clip links from Rabasa's media set (40 entries).
-const CLIP_URLS = Array.from(
-  { length: 40 },
-  (_, i) => `https://example.com/play2pro-placeholder/clip-${String(i + 1).padStart(2, "0")}`,
-);
+// Rabasa's clip links, keyed by game. Each game's gamers take its URLs in order.
+const CLIP_URLS: Record<string, string[]> = {
+  Valorant: [
+    "https://www.youtube.com/watch?v=1fbml1rGXk0",
+    "https://www.youtube.com/watch?v=K7G0HGNt910",
+    "https://www.youtube.com/watch?v=wZ3AQXB8Vj4",
+    "https://www.youtube.com/watch?v=xzrDyGdzBb0",
+    "https://www.youtube.com/watch?v=XdVq2N79HVc",
+    "https://www.youtube.com/watch?v=CIUJdaLjSCI",
+    "https://www.youtube.com/watch?v=psftTShgBiQ",
+    "https://www.youtube.com/watch?v=lihYUxBZ_BE",
+    "https://www.youtube.com/watch?v=QtnBCECeL6E",
+    "https://www.youtube.com/watch?v=MS-WoI7l2ZE",
+    "https://www.youtube.com/watch?v=rQPZC93T8lQ",
+    "https://www.youtube.com/watch?v=1ipFDyilXOc",
+    "https://www.youtube.com/watch?v=BcmWO2hTsSI",
+    "https://www.youtube.com/watch?v=QnBTE-UVpX4",
+    "https://www.youtube.com/watch?v=iY8H8ZXbPWk",
+    "https://www.youtube.com/watch?v=AdVJNTpOFIY",
+    "https://www.youtube.com/watch?v=DKES_1v3uxY",
+    "https://www.youtube.com/watch?v=H2eWoRSiGU0",
+    "https://www.youtube.com/watch?v=39gKayF81PI",
+    "https://www.youtube.com/watch?v=i3ayYsJAhH4",
+  ],
+  "Call of Duty Mobile": [
+    "https://www.youtube.com/watch?v=hr2sBxg0sq0",
+    "https://www.youtube.com/watch?v=5lBYbI1MDbw",
+    "https://www.youtube.com/watch?v=BC91XkS8xQU",
+    "https://www.youtube.com/watch?v=KcIoSA1vW-4",
+    "https://www.youtube.com/watch?v=uE_gH1K09JY",
+    "https://www.youtube.com/watch?v=EfYWUdiLUDg",
+    "https://www.youtube.com/watch?v=njt76vltyf8",
+    "https://www.youtube.com/watch?v=VbiajUdT2mg",
+    "https://www.youtube.com/watch?v=u0w0zJFxLms",
+    "https://www.youtube.com/watch?v=olMha2xih-0",
+    "https://www.youtube.com/watch?v=PM9lcrpCTbA",
+    "https://www.youtube.com/watch?v=v13awm-rY7g",
+    "https://www.youtube.com/watch?v=hKHJtbLCWVc",
+    "https://www.youtube.com/watch?v=dKUrtTVi5ts",
+    "https://www.youtube.com/watch?v=8kqObv3-n_w",
+    "https://www.youtube.com/watch?v=v6z36fJK768",
+    "https://www.youtube.com/watch?v=EaahgoPu7Js",
+    "https://www.youtube.com/watch?v=QzWuRS3IxjQ",
+    "https://www.youtube.com/watch?v=_wrYG9Di9_M",
+    "https://www.youtube.com/watch?v=ZSUGkV9M8ug",
+  ],
+};
 
+// Game names must match the web app's display names (web/src/config/games.ts).
 const GAMERS: { tag: string; game: string; tier: Tier; adult: boolean; region: string }[] = [
   { tag: "ShadowStep", game: "Valorant", tier: "PAID", adult: true, region: "KE" },
   { tag: "KopaClutch", game: "Valorant", tier: "FREE", adult: true, region: "NG" },
@@ -22,15 +65,14 @@ const GAMERS: { tag: string; game: string; tier: Tier; adult: boolean; region: s
   { tag: "Vandalina", game: "Valorant", tier: "FREE", adult: true, region: "GLOBAL" },
   { tag: "SpikeSensei", game: "Valorant", tier: "FREE", adult: true, region: "NG" },
   { tag: "EcoRound", game: "Valorant", tier: "FREE", adult: false, region: "KE" },
-  { tag: "TikiTaka254", game: "EA FC 25", tier: "PAID", adult: true, region: "KE" },
-  { tag: "FinesseKing", game: "EA FC 25", tier: "FREE", adult: true, region: "NG" },
-  { tag: "LagosLob", game: "EA FC 25", tier: "FREE", adult: true, region: "NG" },
-  { tag: "PenaltyPapa", game: "EA FC 25", tier: "FREE", adult: false, region: "GLOBAL" },
-  { tag: "BuildBoss", game: "Fortnite", tier: "PAID", adult: true, region: "KE" },
-  { tag: "StormChaser", game: "Fortnite", tier: "FREE", adult: true, region: "GLOBAL" },
-  { tag: "ZoneZero", game: "Fortnite", tier: "FREE", adult: false, region: "NG" },
-  { tag: "MidLaneMira", game: "League of Legends", tier: "PAID", adult: true, region: "KE" },
-  { tag: "JungleJabari", game: "League of Legends", tier: "FREE", adult: true, region: "GLOBAL" },
+  { tag: "OperatorOdi", game: "Valorant", tier: "FREE", adult: true, region: "GLOBAL" },
+  { tag: "Hardpoint254", game: "Call of Duty Mobile", tier: "PAID", adult: true, region: "KE" },
+  { tag: "LagosLoadout", game: "Call of Duty Mobile", tier: "FREE", adult: true, region: "NG" },
+  { tag: "QuickscopeQueen", game: "Call of Duty Mobile", tier: "PAID", adult: true, region: "GLOBAL" },
+  { tag: "NuketownNjeri", game: "Call of Duty Mobile", tier: "FREE", adult: true, region: "KE" },
+  { tag: "ScorestreakSeyi", game: "Call of Duty Mobile", tier: "FREE", adult: true, region: "NG" },
+  { tag: "SlideCancel", game: "Call of Duty Mobile", tier: "FREE", adult: false, region: "GLOBAL" },
+  { tag: "GulagGhost", game: "Call of Duty Mobile", tier: "FREE", adult: true, region: "KE" },
 ];
 
 const STAFF: { name: string; email: string; role: Role; tier: Tier }[] = [
@@ -41,9 +83,7 @@ const STAFF: { name: string; email: string; role: Role; tier: Tier }[] = [
 
 const CLIP_TITLES: Record<string, string[]> = {
   Valorant: ["1v3 clutch on Ascent", "Sheriff ace on Bind", "Retake with 10 HP"],
-  "EA FC 25": ["Rabona finish from the edge", "Last-minute equaliser", "Solo run past four defenders"],
-  Fortnite: ["Box fight 1v2", "Zero-build final circle", "Triple edit win"],
-  "League of Legends": ["Pentakill at Baron", "Solo kill top lane", "Dragon steal"],
+  "Call of Duty Mobile": ["Hardpoint hold on Firing Range", "Search and Destroy 1v4", "Quickscope streak"],
 };
 
 // mulberry32: small seeded PRNG so every run produces the same votes and views.
@@ -112,17 +152,20 @@ for (const s of STAFF) {
   accounts.push({ email, role: s.role, tier: s.tier, verifiedAdult: true });
 }
 
-// 10 gamers get 3 clips, 5 get 2: 40 clips. Each clip's upvote odds sit near its owner's skill.
+// Gamers take up to 3 of their game's URLs in order: 6 get 3 clips and the last of each game gets 2, 40 clips.
+// Each clip's upvote odds sit near its owner's skill.
 const clips = [];
-let urlIndex = 0;
-for (const [i, g] of gamers.entries()) {
-  for (let c = 0; c < (i < 10 ? 3 : 2); c++) {
+const urlIndex: Record<string, number> = {};
+for (const g of gamers) {
+  const urls = CLIP_URLS[g.game];
+  urlIndex[g.game] ??= 0;
+  for (let c = 0; c < 3 && urlIndex[g.game] < urls.length; c++) {
     const clip = await prisma.clip.create({
       data: {
         gamerId: g.id,
         title: CLIP_TITLES[g.game][c],
         description: CLIP_TITLES[g.game][c],
-        videoUrl: CLIP_URLS[urlIndex++],
+        videoUrl: urls[urlIndex[g.game]++],
         game: g.game,
         viewCount: 50 + Math.floor(rand() * 850),
       },
