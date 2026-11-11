@@ -1,7 +1,6 @@
 // Rabasa owns. The only file that talks to PayPal; everything else calls these functions.
 // Sandbox only: PAYPAL_API_BASE defaults to the sandbox host.
 
-const todo = (name: string): never => { throw new Error(`${name} not implemented`); };
 
 const apiBase = () => process.env.PAYPAL_API_BASE ?? "https://api-m.sandbox.paypal.com";
 
@@ -75,8 +74,8 @@ function firstCapture(order: OrderJson): Capture {
 }
 
 /**
- * Pay-now order (intent CAPTURE), used for donations. `customId` ties it to our record and
- * `requestId` makes a retried create return the same order.
+ * Order for the payer to approve. CAPTURE (default) is a pay-now donation; AUTHORIZE is a bounty hold.
+ * `customId` ties it to our record and `requestId` makes a retried create return the same order.
  */
 export async function createOrder(input: {
   amountCents: number;
@@ -85,12 +84,14 @@ export async function createOrder(input: {
   requestId: string;
   returnUrl: string;
   cancelUrl: string;
+  intent?: "CAPTURE" | "AUTHORIZE";
 }): Promise<{ orderId: string; approvalUrl: string }> {
+  const intent = input.intent ?? "CAPTURE";
   const order = await paypal<OrderJson>(
     "POST",
     "/v2/checkout/orders",
     {
-      intent: "CAPTURE",
+      intent,
       purchase_units: [
         { custom_id: input.customId, amount: { currency_code: input.currency, value: toValue(input.amountCents) } },
       ],
@@ -98,7 +99,8 @@ export async function createOrder(input: {
         paypal: {
           experience_context: {
             brand_name: "Play2Pro",
-            user_action: "PAY_NOW",
+            // PayPal's wording for "approve now, money moves later" is CONTINUE, not PAY_NOW.
+            user_action: intent === "AUTHORIZE" ? "CONTINUE" : "PAY_NOW",
             shipping_preference: "NO_SHIPPING",
             return_url: input.returnUrl,
             cancel_url: input.cancelUrl,
@@ -128,10 +130,79 @@ export async function captureCheckoutOrder(orderId: string, requestId: string): 
   }
 }
 
-// Bounty escrow (Obonyo calls these). Not built yet.
-export async function authorizeOrder(amount: string): Promise<{ orderId: string; approvalUrl: string }> { return todo("authorizeOrder"); }
-export async function captureOrder(authorizationId: string): Promise<{ captureId: string }> { return todo("captureOrder"); }
-export async function voidAuthorization(authorizationId: string): Promise<void> { return todo("voidAuthorization"); }
+// Bounty escrow (Obonyo calls these). Flow and PayPal answers: docs/escrow-sandbox-test.md.
+// The sponsor approves an AUTHORIZE order; completeAuthorization then places the hold.
+
+/** Step 1: the sponsor's approval link for a bounty hold. */
+export async function authorizeOrder(input: {
+  amountCents: number;
+  bountyId: string;
+  requestId: string;
+  currency?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}): Promise<{ orderId: string; approvalUrl: string }> {
+  return createOrder({
+    amountCents: input.amountCents,
+    currency: input.currency ?? process.env.PAYPAL_CURRENCY ?? "USD",
+    customId: `bounty:${input.bountyId}`,
+    requestId: input.requestId,
+    returnUrl: input.returnUrl ?? `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/pay/return`,
+    cancelUrl: input.cancelUrl ?? `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/pay/return?cancelled=1`,
+    intent: "AUTHORIZE",
+  });
+}
+
+/** Step 2, after CHECKOUT.ORDER.APPROVED: places the hold and returns the authorization to store. */
+export async function completeAuthorization(
+  orderId: string,
+  requestId: string,
+): Promise<{ authorizationId: string; expiresAt: string }> {
+  const order = await paypal<OrderJson & {
+    purchase_units?: { payments?: { authorizations?: { id: string; expiration_time?: string }[] } }[];
+  }>("POST", `/v2/checkout/orders/${encodeURIComponent(orderId)}/authorize`, {}, requestId);
+  const auth = order.purchase_units?.[0]?.payments?.authorizations?.[0];
+  if (!auth?.id || !auth.expiration_time) throw new Error(`PayPal order ${orderId} has no authorization`);
+  return { authorizationId: auth.id, expiresAt: auth.expiration_time };
+}
+
+/**
+ * Step 3: takes the held money (final capture). Sandbox answer 422 AUTHORIZATION_ALREADY_CAPTURED
+ * means an earlier call already took it: returned as `alreadyCaptured` with no captureId, so the
+ * caller must keep the captureId it stored the first time. Don't call again after a void.
+ */
+export async function captureOrder(
+  authorizationId: string,
+  opts: { requestId: string; finalCapture?: boolean },
+): Promise<{ captureId: string | null; alreadyCaptured: boolean }> {
+  try {
+    const capture = await paypal<{ id: string }>(
+      "POST",
+      `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}/capture`,
+      { final_capture: opts.finalCapture ?? true },
+      opts.requestId,
+    );
+    return { captureId: capture.id, alreadyCaptured: false };
+  } catch (e) {
+    if (e instanceof PaypalError && e.issue === "AUTHORIZATION_ALREADY_CAPTURED") {
+      return { captureId: null, alreadyCaptured: true };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Releases the hold (no winner, or expired). Sandbox answer 422 PREVIOUSLY_VOIDED means it is
+ * already released: success. Capturing a voided hold fails with AUTHORIZATION_VOIDED.
+ */
+export async function voidAuthorization(authorizationId: string): Promise<void> {
+  try {
+    await paypal<unknown>("POST", `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}/void`, {});
+  } catch (e) {
+    if (e instanceof PaypalError && e.issue === "PREVIOUSLY_VOIDED") return;
+    throw e;
+  }
+}
 
 /**
  * Sends money to a PayPal account by email (Payouts API). `senderBatchId` must be unique:
