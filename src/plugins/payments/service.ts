@@ -162,3 +162,40 @@ export async function payout(input: {
   if (!batch?.payout_batch_id) throw new Error("PayPal payout response has no batch id");
   return { payoutBatchId: batch.payout_batch_id, batchStatus: batch.batch_status ?? "PENDING" };
 }
+
+/**
+ * Creates a PayPal subscription (Billing API) and returns the approval link for the payer.
+ * `customId` is our user id, a backup for matching the subscription back to a user.
+ */
+export async function createSubscription(input: {
+  planId: string;
+  customId: string;
+  requestId: string;
+  returnUrl: string;
+  cancelUrl: string;
+}): Promise<{ subscriptionId: string; approvalUrl: string }> {
+  const sub = await paypal<{ id: string; links?: { rel: string; href: string }[] }>(
+    "POST",
+    "/v1/billing/subscriptions",
+    {
+      plan_id: input.planId,
+      custom_id: input.customId,
+      application_context: {
+        brand_name: "Play2Pro",
+        user_action: "SUBSCRIBE_NOW",
+        shipping_preference: "NO_SHIPPING",
+        return_url: input.returnUrl,
+        cancel_url: input.cancelUrl,
+      },
+    },
+    input.requestId,
+  );
+  const approvalUrl = sub.links?.find((l) => l.rel === "approve")?.href;
+  if (!approvalUrl) throw new Error(`PayPal subscription ${sub.id} has no approval link`);
+  return { subscriptionId: sub.id, approvalUrl };
+}
+
+/** Asks PayPal to cancel. Our tier changes only when the CANCELLED webhook arrives. */
+export async function cancelSubscription(subscriptionId: string, reason: string): Promise<void> {
+  await paypal<unknown>("POST", `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, { reason });
+}
