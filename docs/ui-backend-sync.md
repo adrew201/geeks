@@ -50,6 +50,10 @@ Route paths and API paths are listed in `web/src/components/layout/nav-config.ts
 
 The API takes the voter from the JWT and rejects extra body fields (`additionalProperties: false`). The web sent `voterId`, which returned 400. Fixed on this branch in `web/src/features/feed/api.ts` (body is `{ direction }`), `web/src/types/api.ts` (`VoteRequest`) and `web/src/mocks/index.ts` (mock checks `direction`). Nigel and Obonyo should review these edits.
 
+## 4a. Donate shows "Order creation failed"
+
+If `/api/v1/donations` is not in `VITE_REAL_API`, the donate request is answered by the mock. The mock only knows its own fixture gamers, so a real gamer returns 404 and the modal shows the generic error. The API log then has no `POST /api/v1/donations` at all. Fix: add `/api/v1/donations,/api/v1/orders` to the static site env, rebuild, and make sure `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` are set on `geeks`.
+
 ## 5. Backend version
 
 - The deployed API (`geeks`) runs branch `worktree-rabasa-render-skeleton`, not `main`. The features on `main` (profiles and dashboard, paged feed, vote from JWT) do not reach Render until the deploy branch is switched to `main` and redeployed. Until then the gamer and wallet pages show "not found" or mock data.
@@ -64,7 +68,7 @@ Render static site (`play2pro-web`):
 | --- | --- |
 | `VITE_API_URL` | `https://geeks-azyy.onrender.com` |
 | `VITE_USE_MOCKS` | `true` for now |
-| `VITE_REAL_API` | `/auth,/api/v1/leaderboard,/api/v1/feed,/api/v1/gamers` |
+| `VITE_REAL_API` | `/auth,/api/v1/leaderboard,/api/v1/feed,/api/v1/clips,/api/v1/gamers,/api/v1/donations,/api/v1/orders,/api/v1/wallet` |
 | `VITE_PAYPAL_CLIENT_ID` | sandbox client ID (public) |
 
 Build command: `npm install && npm run build`. Publish directory: `dist`. Rewrite `/*` to `/index.html`. Rebuild after every change to these values: Manual Deploy → Deploy latest commit.
