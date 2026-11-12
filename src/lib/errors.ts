@@ -6,8 +6,9 @@ export class AppError extends Error {
     public status: number,
     public code: string,
     message: string,
+    options?: { cause?: unknown },
   ) {
-    super(message);
+    super(message, options);
   }
 }
 
@@ -17,6 +18,8 @@ export function errorHandler(
   reply: FastifyReply,
 ) {
   if (err instanceof AppError) {
+    // A 5xx hides its cause from the client; log the cause so the Render logs say why.
+    if (err.status >= 500) req.log.error({ code: err.code, cause: err.cause }, err.message);
     return reply.code(err.status).send({ error: { code: err.code, message: err.message } });
   }
   if (err.validation) {
