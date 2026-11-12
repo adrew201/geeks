@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createClip, getFeed, getFeedPage, toApiClip, voteOnClip } from "./service.js";
+import { createClip, getFeedWithAds, toApiClip, voteOnClip } from "./service.js";
 
 function sendError(reply: { code(n: number): any; send(e: unknown): unknown }, err: unknown) {
   const status =
@@ -47,27 +47,30 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  // README §14 feed: { items, nextCursor }.
+  // Migration plan O1: GET /api/v1/clips/feed is the paged contract
+  // { items, nextCursor } with house ads interleaved.
+  app.get("/clips/feed", async (req) => {
+    const q = req.query as { cursor?: string; game?: string };
+    return getFeedWithAds(q.cursor, q.game);
+  });
+
+  // Temporary alias until Nigel's N-feed cut-over moves the web to /clips/feed.
   app.get("/feed", async (req) => {
     const q = req.query as { cursor?: string; game?: string };
-    return getFeedPage(q.cursor, q.game);
+    return getFeedWithAds(q.cursor, q.game);
   });
 
-  // Older raw feed, kept so existing callers don't break.
-  app.get("/clips/feed", async (req) => {
-    const game = (req.query as { game?: string }).game;
-    return getFeed(game);
-  });
-
-  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
+  // Migration plan O2: direction only; voterId comes from the JWT.
+  app.post<{ Params: { id: string }; Body: { direction: "UP" | "DOWN" } }>(
     "/clips/:id/vote",
     {
+      preHandler: app.authenticate,
       schema: {
         body: {
           type: "object",
-          required: ["voterId", "direction"],
+          required: ["direction"],
+          additionalProperties: false,
           properties: {
-            voterId: { type: "string" },
             direction: { type: "string", enum: ["UP", "DOWN"] },
           },
         },
@@ -75,9 +78,9 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       try {
-        const b = req.body as { voterId: string; direction: "UP" | "DOWN" };
+        const clipId = (req.params as { id: string }).id;
         return reply.send(
-          await voteOnClip({ clipId: (req.params as { id: string }).id, ...b })
+          await voteOnClip({ clipId, voterId: req.user.sub, direction: req.body.direction })
         );
       } catch (err) {
         return sendError(reply, err);
