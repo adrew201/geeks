@@ -2,6 +2,8 @@
    PLAY2PRO DESIGN TOKENS: the single source of truth for the web app.
    Change a value here and every Tailwind utility that uses it updates.
    Source: docs/ui-audit.md §2 (extracted from the 32 HTML prototypes).
+   Minimalist pass: COLOURS ARE UNCHANGED. Only radii, shadows and decorative glows differ
+   (rounder corners, no card shadows, no glows). Token names are unchanged.
 
    Rules:
    - Tailwind's default palette, radii, shadows, fonts and font sizes are
@@ -97,27 +99,27 @@
 
   /* ---------- Radii (values actually used) ---------- */
   --radius-*: initial;
-  --radius-xs: 4px; /* badges-in-boxes, state buttons, skeleton (hard-coded ×45) */
-  --radius-sm: 6px; /* --radius-sm */
-  --radius-8: 8px; /* brand logo, misc (hard-coded ×30) */
-  --radius-md: 10px; /* --radius-md: buttons, inputs, nav items */
-  --radius-12: 12px; /* avatar-md, inner cards (hard-coded ×14) */
-  --radius-lg: 14px; /* --radius-lg: cards */
-  --radius-xl: 20px; /* --radius-xl: hero cards, modals (13M used 24px; unified) */
+  --radius-xs: 6px; /* badges-in-boxes, state buttons, skeleton (hard-coded ×45) */
+  --radius-sm: 8px; /* --radius-sm */
+  --radius-8: 10px; /* brand logo, misc (hard-coded ×30) */
+  --radius-md: 12px; /* --radius-md: buttons, inputs, nav items */
+  --radius-12: 14px; /* avatar-md, inner cards (hard-coded ×14) */
+  --radius-lg: 18px; /* --radius-lg: cards */
+  --radius-xl: 24px; /* --radius-xl: hero cards, modals (13M used 24px; unified) */
   /* rounded-full is built into Tailwind (prototype --radius-full / 50%). */
 
   /* ---------- Shadows ---------- */
   --shadow-*: initial;
-  --shadow-card: 0 10px 30px -10px rgb(0 0 0 / 0.5);
-  --shadow-dropdown: 0 20px 40px -15px rgb(0 0 0 / 0.7);
-  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.85);
-  --shadow-sheet: 0 -10px 40px rgb(0 0 0 / 0.8); /* 13M bottom sheet */
-  --shadow-toast: 0 10px 25px rgb(0 0 0 / 0.6); /* mobile toast */
-  --shadow-glow-primary: 0 4px 14px rgb(59 130 246 / 0.35);
-  --shadow-glow-ai: 0 4px 14px rgb(139 92 246 / 0.35);
-  --shadow-glow-success: 0 4px 14px rgb(16 185 129 / 0.35);
-  --shadow-glow-paypal: 0 4px 16px rgb(255 196 57 / 0.25);
-  --shadow-ring-primary: 0 0 20px rgb(59 130 246 / 0.25); /* 12D .avatar-lg */
+  --shadow-card: none;
+  --shadow-dropdown: 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --shadow-modal: 0 24px 60px -24px rgb(0 0 0 / 0.7);
+  --shadow-sheet: 0 -12px 40px -16px rgb(0 0 0 / 0.7); /* 13M bottom sheet */
+  --shadow-toast: 0 10px 28px -12px rgb(0 0 0 / 0.6); /* mobile toast */
+  --shadow-glow-primary: none;
+  --shadow-glow-ai: none;
+  --shadow-glow-success: none;
+  --shadow-glow-paypal: none;
+  --shadow-ring-primary: none; /* 12D .avatar-lg */
   --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.15); /* 07D .input-control:focus */
 
   /* ---------- Motion ---------- */
@@ -221,29 +223,18 @@
 
 /* Hero gradient text: linear-gradient(135deg, text-primary 30–40%, text-secondary) (01D, 02D) */
 @utility text-gradient-hero {
-  background-image: linear-gradient(135deg, var(--color-fg) 35%, var(--color-fg-secondary));
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--color-fg);
 }
 
 /* Corner glow: radial-gradient(circle at 0% 0%, primary .12, transparent 70%) (02D brand panel) */
 @utility bg-glow-primary {
-  background-image: radial-gradient(
-    circle at 0% 0%,
-    color-mix(in srgb, var(--color-primary) 12%, transparent),
-    transparent 70%
-  );
+  background-image: none;
 }
 
 /* Violet corner glow: radial-gradient(circle at 0% 0%, ai-violet .08–.12, transparent 60–70%)
    (12D .profile-header-card, 12M identity card, 06D .ai-card, 06M AI card), unified at 12%. */
 @utility bg-glow-ai {
-  background-image: radial-gradient(
-    circle at 0% 0%,
-    color-mix(in srgb, var(--color-ai) 12%, transparent),
-    transparent 70%
-  );
+  background-image: none;
 }
 
 /* ==========================================================================

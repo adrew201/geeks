@@ -12,6 +12,7 @@ import type { FeedVariant } from "./ReelCard.tsx";
 // feed only contains it for FREE-tier users.
 
 const SIZE: Record<FeedVariant, string> = {
+  screen: "h-full w-full",
   desktop: "h-[640px] w-[420px] shrink-0",
   mobile: "h-[420px] w-full",
 };
@@ -27,8 +28,8 @@ export function HouseAdCard({ variant, ad, onNext }: HouseAdCardProps) {
   return (
     <Card
       as="aside"
-      large={variant === "desktop"}
-      padding={variant === "desktop" ? "md" : "sm"}
+      large={variant !== "mobile"}
+      padding={variant !== "mobile" ? "md" : "sm"}
       aria-label="Advertisement"
       className={cn("items-center justify-center text-center", SIZE[variant])}
     >

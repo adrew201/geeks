@@ -18,7 +18,7 @@ export interface StatTileProps {
 
 export function StatTile({ label, value, hint, tag, emphasis, className }: StatTileProps) {
   return (
-    <dl className={cn("flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-surface p-4 shadow-card lg:p-5", className)}>
+    <dl className={cn("flex min-w-0 flex-col gap-1.5 rounded-lg bg-surface p-4 shadow-card lg:p-5", className)}>
       <div className="flex items-center justify-between gap-2">
         <dt className="truncate text-11 font-bold tracking-[0.5px] text-fg-muted uppercase">{label}</dt>
         {tag}
@@ -38,7 +38,7 @@ export function StatTile({ label, value, hint, tag, emphasis, className }: StatT
 
 export function StatTileSkeleton() {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-card lg:p-5">
+    <div className="flex flex-col gap-3 rounded-lg bg-surface p-4 shadow-card lg:p-5">
       <Skeleton className="h-3 w-24" />
       <Skeleton className="h-7 w-28" />
       <Skeleton className="h-3 w-32" />

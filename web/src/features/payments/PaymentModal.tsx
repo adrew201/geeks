@@ -269,7 +269,7 @@ function PhaseBody({
 /** 13D .order-summary-box (13M order total card). */
 function OrderSummary({ lines, total }: { lines: SummaryLine[]; total: Cents }) {
   return (
-    <div className="rounded-lg border border-border bg-inset p-4">
+    <div className="rounded-lg bg-inset p-4">
       <p className="mb-3 text-12 font-bold uppercase tracking-[0.5px] text-fg-secondary">Order summary</p>
       {lines.map((line) => (
         <div key={line.label} className="mb-2 flex items-center justify-between text-13 text-fg-secondary">

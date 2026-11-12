@@ -387,7 +387,7 @@ function ResultsCard({ clip }: { clip: Clip }) {
       )}
 
       {moments.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-inset p-3">
+        <div className="flex flex-col gap-2 rounded-md bg-inset p-3">
           <h3 className="text-12 font-semibold text-fg-secondary">Key moments</h3>
           <ul className="flex flex-col gap-1.5">
             {moments.map((moment) => (

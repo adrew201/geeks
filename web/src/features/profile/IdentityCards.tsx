@@ -28,7 +28,7 @@ export function ProfileHeaderCard({ profile }: { profile: GamerProfile }) {
   return (
     <section
       aria-labelledby={NAME_ID}
-      className="flex items-center justify-between gap-6 rounded-xl border border-border bg-surface bg-glow-ai px-8 py-7 shadow-card"
+      className="flex items-center justify-between gap-6 rounded-xl bg-surface bg-glow-ai px-8 py-7 shadow-card"
     >
       <div className="flex min-w-0 items-center gap-5">
         <Avatar name={name} size="xl" shape="tile" />
@@ -130,7 +130,7 @@ export function MobileViewerIdentity({ profile, action }: { profile: GamerProfil
   return (
     <section
       aria-labelledby={NAME_ID}
-      className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface bg-glow-ai p-3"
+      className="flex flex-col gap-2.5 rounded-lg bg-surface bg-glow-ai p-3"
     >
       <div className="flex items-center gap-3">
         <Avatar name={name} size="md" shape="tile" />
@@ -159,7 +159,7 @@ export function MobileOwnerIdentity({ profile }: { profile: GamerProfile }) {
   const { community } = profileTrust(profile);
   const chips = [...profile.games, ...(profile.region ? [profile.region] : [])];
   return (
-    <section aria-labelledby={NAME_ID} className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+    <section aria-labelledby={NAME_ID} className="flex flex-col gap-3 rounded-lg bg-surface p-4">
       <div className="flex items-center gap-3">
         <OwnerAvatar name={name} size="mobile" />
         <div className="min-w-0">
@@ -178,7 +178,7 @@ export function MobileOwnerIdentity({ profile }: { profile: GamerProfile }) {
           )}
         </div>
       </div>
-      <div className="mt-1 flex items-center justify-between rounded-md border border-border bg-inset px-3.5 py-2.5">
+      <div className="mt-1 flex items-center justify-between rounded-md bg-inset px-3.5 py-2.5">
         <div>
           <p className="text-10 text-fg-muted uppercase">{RAD_SCORE_LABEL}</p>
           <p className="font-display text-22 font-bold text-primary">{formatNumber(profile.radScore)}</p>

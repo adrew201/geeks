@@ -13,7 +13,7 @@ import { cn } from "../../lib/cn.ts";
 /** 02D .auth-tabs: Sign Up / Log In switch. Each tab is a route, so links, not buttons. */
 export function AuthTabs() {
   return (
-    <nav aria-label="Account" className="flex gap-1 rounded-md border border-border bg-inset p-1">
+    <nav aria-label="Account" className="flex gap-1 rounded-md bg-inset p-1">
       {[
         { to: ROUTES.signup, label: "Sign Up" },
         { to: ROUTES.login, label: "Log In" },

@@ -11,13 +11,15 @@ import type { VoteStatus } from "./use-feed.ts";
 import { useSwipe } from "./use-swipe.ts";
 import { SWIPE_INSTRUCTIONS } from "./vote-options.ts";
 
-export type FeedVariant = "desktop" | "mobile";
+export type FeedVariant = "screen" | "desktop" | "mobile";
 
 // Desktop = 09D .gameplay-reel-card: 420×640, inset bg, border, radius-xl, shadow-card.
 // Mobile  = 09M .mobile-reel-viewport: full width × 420, radius-lg, border, 14px padding.
 const FRAME: Record<FeedVariant, string> = {
+  // Full screen: fills the arena area; the vote arrows float over it (FloatingVote.tsx).
+  screen: "h-full w-full rounded-none bg-inset",
   desktop:
-    "h-[640px] w-[420px] shrink-0 rounded-xl border border-border bg-inset shadow-card",
+    "h-[640px] w-[420px] shrink-0 rounded-xl bg-inset shadow-card",
   mobile: "h-[420px] w-full rounded-lg border border-border bg-thumb-gradient p-3.5",
 };
 
@@ -102,7 +104,7 @@ export function ReelCard({ variant, clip, owner, voteStatus, swipeEnabled, onSwi
       <p id={instructionsId} className="sr-only">
         {SWIPE_INSTRUCTIONS}
       </p>
-      {variant === "desktop" ? <DesktopReel clip={clip} owner={owner} /> : <MobileReel clip={clip} owner={owner} />}
+      {variant === "mobile" ? <MobileReel clip={clip} owner={owner} /> : <DesktopReel clip={clip} owner={owner} />}
       {swipeEnabled && <SwipeHints />}
       {overlay && <ReelOverlay>{overlay}</ReelOverlay>}
     </ReelFrame>
