@@ -1,5 +1,5 @@
 import { ROUTES } from "../../components/layout/nav-config.ts";
-import { env } from "../../config/env.ts";
+import { usesRealApi } from "../../config/env.ts";
 import { PAYPAL_RETURN_PARAM, type Cents, type PaymentPurpose } from "../../types/api.ts";
 
 // Leaving for PayPal and coming back.
@@ -38,8 +38,12 @@ export function mockReturnPath(orderId: string): string {
   return `${ROUTES.payReturn}?${params.toString()}`;
 }
 
-/** True when the redirect should be simulated in-app (see mockReturnPath). */
-export const simulateApproval = env.useMocks;
+/**
+ * True when the redirect should be simulated in-app (see mockReturnPath). Only when the order
+ * status is mocked too: in hybrid mode with /api/v1/orders on the real API, the order came from
+ * the real backend, so the payer must really go to PayPal.
+ */
+export const simulateApproval = !usesRealApi("/api/v1/orders");
 
 /* ------------------------------ checkout context ------------------------------ */
 
