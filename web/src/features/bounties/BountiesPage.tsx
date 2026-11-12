@@ -129,7 +129,7 @@ function BountyCard({ bounty, mine }: { bounty: Bounty; mine: boolean }) {
   return (
     <Link
       to={bountyPath(bounty.id)}
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-card transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
+      className="flex h-full flex-col gap-3 rounded-lg bg-surface p-5 shadow-card transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge tone={status.tone} size="sm">

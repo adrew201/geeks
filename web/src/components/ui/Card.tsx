@@ -1,11 +1,11 @@
 import type { ComponentProps } from "react";
 import { cn } from "../../lib/cn.ts";
 
-// surface = .card-panel (09D): surface bg, border, radius-lg, 24px, shadow-card, gap 16.
+// Minimalist pass: no border and no shadow; the surface colour alone separates the card.
 // inset   = nested #11151F panels (pipeline steps, passport cards).
 const VARIANTS = {
-  surface: "border-border bg-surface",
-  inset: "border-border bg-inset",
+  surface: "bg-surface",
+  inset: "bg-inset",
 } as const;
 
 const PADDING = {
@@ -38,7 +38,7 @@ export function Card({
   return (
     <Component
       className={cn(
-        "flex flex-col gap-4 border",
+        "flex flex-col gap-4",
         large ? "rounded-xl" : "rounded-lg",
         VARIANTS[variant],
         PADDING[padding],

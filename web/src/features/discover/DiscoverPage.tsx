@@ -265,7 +265,7 @@ function FeaturedCard({
   return (
     <Link
       to={to}
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-inset p-4 transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
+      className="flex h-full flex-col gap-3 rounded-lg bg-inset p-4 transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
     >
       <div className="flex items-center gap-3">
         <Avatar name={tag} size="md" shape="tile" />
@@ -295,7 +295,7 @@ function FeaturedSkeleton() {
   return (
     <div className="grid gap-3 sm:grid-cols-3" aria-busy="true">
       {[0, 1, 2].map((index) => (
-        <div key={index} className="flex flex-col gap-3 rounded-lg border border-border bg-inset p-4">
+        <div key={index} className="flex flex-col gap-3 rounded-lg bg-inset p-4">
           <Skeleton className="h-11 w-full" />
           <Skeleton className="h-8 w-20" />
           <Skeleton className="h-4 w-full" />
@@ -435,7 +435,7 @@ function SponsorBounties({ load, onRetry }: { load: Load<Bounty[]>; onRetry: () 
               <li key={bounty.id}>
                 <Link
                   to={bountyPath(bounty.id)}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-inset px-3.5 py-3 transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
+                  className="flex items-center justify-between gap-3 rounded-md bg-inset px-3.5 py-3 transition-all duration-200 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-13 font-semibold">{bounty.title}</p>

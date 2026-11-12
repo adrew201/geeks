@@ -226,7 +226,7 @@ function WalletBody({ entries, balance, period, onPeriod, compact, refreshing, o
 /** 08D period pills (segmented), now wired. */
 function PeriodPills({ value, onChange }: { value: WalletPeriod; onChange: (period: WalletPeriod) => void }) {
   return (
-    <div role="group" aria-label="Period" className="flex w-fit gap-1 rounded-md border border-border bg-inset p-1">
+    <div role="group" aria-label="Period" className="flex w-fit gap-1 rounded-md bg-inset p-1">
       {WALLET_PERIODS.map((option) => (
         <button
           key={option.value}

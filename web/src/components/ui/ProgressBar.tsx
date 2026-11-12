@@ -42,14 +42,15 @@ export function ProgressBar({
         className={cn(
           "w-full overflow-hidden",
           variant === "skill"
-            ? "h-2 rounded-full border border-border bg-inset"
-            : "h-1.5 rounded-[3px] bg-white/6",
+            ? "h-1 rounded-full bg-white/8"
+            : "h-1 rounded-full bg-white/8",
         )}
       >
         <div
           className={cn(
             "h-full",
-            variant === "skill" ? "rounded-full bg-skill-gradient" : cn("rounded-[3px]", TONE_FILL[tone]),
+            "rounded-full",
+            variant === "skill" ? "bg-skill-gradient" : TONE_FILL[tone],
           )}
           style={{ width: `${percent}%` }}
         />

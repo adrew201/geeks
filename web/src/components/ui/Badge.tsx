@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
-import { TONE_SOFT, type Tone } from "./tone-styles.ts";
+import { TONE_TEXT, type Tone } from "./tone-styles.ts";
 
-// 01D .badge: 3px 10px, 10px, 700, uppercase, letter-spacing .4px, pill.
+// Minimalist pass: a small coloured label, no box and no border.
 // sm = mobile .badge: 2px 7px, 9px.
 const SIZES = {
-  md: "gap-[5px] px-2.5 py-[3px] text-10",
-  sm: "gap-1 px-[7px] py-0.5 text-9",
+  md: "gap-1.5 text-10",
+  sm: "gap-1 text-9",
 } as const;
 
 export interface BadgeProps {
@@ -21,9 +21,9 @@ export function Badge({ tone = "slate", size = "md", icon, className, children }
   return (
     <span
       className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border font-bold uppercase leading-normal tracking-[0.4px]",
+        "inline-flex items-center whitespace-nowrap font-medium uppercase leading-normal tracking-[0.6px]",
         SIZES[size],
-        TONE_SOFT[tone],
+        TONE_TEXT[tone],
         className,
       )}
     >

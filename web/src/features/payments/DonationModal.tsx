@@ -46,7 +46,7 @@ export function DonationModal({ open, onClose, gamer, onUnauthenticated }: Donat
       onUnauthenticated={onUnauthenticated}
       ineligibleMessage={`${name} can't receive donations yet. Donations open once they link a verified adult PayPal account.`}
     >
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-inset p-4">
+      <div className="flex items-center gap-3 rounded-lg bg-inset p-4">
         <Avatar name={name} shape="tile" size="md" />
         <div className="min-w-0">
           <p className="truncate text-14 font-bold">{name}</p>

@@ -195,7 +195,7 @@ export default function NewBountyPage() {
           ineligibleTitle="Verified adult account needed"
           ineligibleMessage="Creating a bounty needs a verified adult PayPal account. Link one, then try again."
         >
-          <div className="flex flex-col gap-1 rounded-lg border border-border bg-inset p-4">
+          <div className="flex flex-col gap-1 rounded-lg bg-inset p-4">
             <p className="text-14 font-bold">{draft.title.trim()}</p>
             <p className="text-11 text-fg-muted">
               {BOUNTY_TYPE_LABEL[draft.type]} • {GAMES[draft.game].name} • Ends {formatDeadline(funding.deadlineIso)}

@@ -84,7 +84,7 @@ function useFieldProps(props: { id?: string; invalid?: boolean; "aria-describedb
 }
 
 const CONTROL =
-  "w-full rounded-md border bg-inset px-3.5 py-2.5 font-sans text-13 text-fg outline-none transition-all duration-200 ease-[ease] focus:border-primary focus:shadow-focus disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-md border bg-transparent px-3.5 py-2.5 font-sans text-13 text-fg outline-none transition-all duration-200 ease-[ease] focus:border-primary focus:shadow-focus disabled:cursor-not-allowed disabled:opacity-60";
 
 function controlState(invalid: boolean, valid: boolean | undefined) {
   if (invalid) return "border-danger bg-danger/4";

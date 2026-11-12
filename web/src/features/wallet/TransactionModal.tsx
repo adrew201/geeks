@@ -30,7 +30,7 @@ export function TransactionModal({ entry, onClose }: { entry: WalletEntry | null
         </Button>
       }
     >
-      <div className="rounded-md border border-border bg-inset p-4 text-center">
+      <div className="rounded-md bg-inset p-4 text-center">
         <p className="text-11 font-bold tracking-[0.5px] text-fg-muted uppercase">Amount</p>
         <p className="font-display text-32 font-bold">
           {entry.amount > 0 ? "+" : ""}

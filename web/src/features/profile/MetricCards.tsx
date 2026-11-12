@@ -12,7 +12,7 @@ export function DesktopMetrics({ metrics }: { metrics: Metric[] }) {
         {metrics.map((metric) => (
           <div
             key={metric.key}
-            className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-5 shadow-card"
+            className="flex flex-col gap-1.5 rounded-lg bg-surface p-5 shadow-card"
           >
             <dt className="text-11 font-bold tracking-[0.5px] text-fg-muted uppercase">{metric.label}</dt>
             <dd
@@ -39,7 +39,7 @@ export function MobileMetrics({ metrics }: { metrics: Metric[] }) {
     <section aria-label="Performance overview">
       <dl className="grid grid-cols-2 gap-2">
         {shown.map((metric) => (
-          <div key={metric.key} className="rounded-8 border border-border bg-inset p-2.5">
+          <div key={metric.key} className="rounded-8 bg-inset p-2.5">
             <dt className="text-9 text-fg-muted uppercase">{metric.shortLabel}</dt>
             <dd
               className={cn("font-display text-16 font-bold", metric.key === "rad-score" ? "text-success" : "text-fg")}

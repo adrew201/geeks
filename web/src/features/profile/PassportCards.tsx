@@ -103,7 +103,7 @@ export function TrustBar({ levels }: { levels: TrustLevel[] }) {
   return (
     <section
       aria-label="What the trust badges mean"
-      className={cn("grid gap-4 rounded-lg border border-border bg-inset px-5 py-4", TRUST_COLUMNS[levels.length - 1])}
+      className={cn("grid gap-4 rounded-lg bg-inset px-5 py-4", TRUST_COLUMNS[levels.length - 1])}
     >
       {levels.map((level) => (
         <div key={level} className="flex flex-col gap-1">
@@ -118,7 +118,7 @@ export function TrustBar({ levels }: { levels: TrustLevel[] }) {
 /** 12M PASSPORT SUMMARY MOBILE. */
 export function MobilePassportCard({ summary, missing }: { summary: AiSkillSummary | null; missing: string[] }) {
   return (
-    <section aria-labelledby="passport-title" className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3">
+    <section aria-labelledby="passport-title" className="flex flex-col gap-2.5 rounded-lg bg-surface p-3">
       <SectionHeader id="passport-title" size="xs" title="Gamer ID" aside={summary && <TrustBadge level="ai" size="sm" />} />
       {missing.length > 0 && <IncompleteNotice missing={missing} owner={false} compact />}
       {summary ? (

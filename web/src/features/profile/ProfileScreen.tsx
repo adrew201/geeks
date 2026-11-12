@@ -408,7 +408,7 @@ function PreviewBanner({ onExit }: { onExit: () => void }) {
 function RestrictedPanel() {
   const session = useSession();
   return (
-    <div className="rounded-xl border border-border bg-surface px-5 py-12 text-center lg:p-20">
+    <div className="rounded-xl bg-surface px-5 py-12 text-center lg:p-20">
       <ShieldAlert className="mx-auto mb-3 size-12 text-warning" aria-hidden="true" />
       <h2 className="text-20 font-extrabold">Restricted Gamer Profile</h2>
       <p className="mx-auto mt-1.5 max-w-[400px] text-13 text-fg-muted">
