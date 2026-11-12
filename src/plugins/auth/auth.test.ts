@@ -192,5 +192,8 @@ describe("auth", () => {
     db.state.users[0].tier = "PAID";
     const after = await app.inject({ method: "GET", url: "/auth/me", headers: auth });
     expect(after.json().user.tier).toBe("PAID");
+    // ...and hands back a fresh token that says so, so the web app needn't log the user out
+    const fresh = app.jwt.decode<{ tier: string; sub: string }>(after.json().token);
+    expect(fresh).toMatchObject({ tier: "PAID", sub: db.state.users[0].id });
   });
 });

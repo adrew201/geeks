@@ -18,7 +18,10 @@ import {
   type CreateSubmissionRequest,
   PROFILE_VISIBILITY,
   ROLE,
+  SUBSCRIPTION_PLAN,
   TIER,
+  type SubscriptionRequest,
+  type SubscriptionResponse,
   type AuthResponse,
   PAYMENT_ORDER_STATUS,
   PAYMENT_PURPOSE,
@@ -636,7 +639,48 @@ route("GET", "/api/v1/orders/:id", ({ params }): PaymentOrder => {
   // Bounty funding: the verified authorization opens the bounty (README §15.3).
   const bountyId = mockBountyOrders.get(params.id);
   if (bountyId && status === PAYMENT_ORDER_STATUS.COMPLETED) findBounty(bountyId).status = BOUNTY_STATUS.OPEN;
+  // Subscriptions: the (mock) ACTIVATED webhook makes the account PAID.
+  if (entry.order.purpose === PAYMENT_PURPOSE.SUBSCRIPTION && status === PAYMENT_ORDER_STATUS.COMPLETED) {
+    const account = mockAccounts.find((a) => a.id === getSession()?.userId);
+    if (account) account.tier = TIER.PAID;
+  }
   return { ...entry.order, status };
+});
+
+// POST /api/v1/subscriptions (Rabasa). Same rules as the API: GAMER buys PAID_GAMER, COACH buys
+// COACH, one open subscription at a time. Subscription ids look like PayPal's ("I-…").
+route("POST", "/api/v1/subscriptions", ({ body }): SubscriptionResponse => {
+  const session = getSession();
+  if (!session) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  const plan = (body as Partial<SubscriptionRequest> | undefined)?.plan;
+  const allowed = session.role === ROLE.GAMER ? SUBSCRIPTION_PLAN.PAID_GAMER : session.role === ROLE.COACH ? SUBSCRIPTION_PLAN.COACH : null;
+  if (!plan || plan !== allowed) throw new ApiError(403, API_ERROR_CODE.FORBIDDEN_ROLE, "Your account type can't buy this plan.");
+  if (session.tier === TIER.PAID) throw new ApiError(409, API_ERROR_CODE.VALIDATION_ERROR, "You already have an active subscription.");
+  const subscriptionId = `I-MOCK${mockOrders.size + 1}${Date.now().toString(36).toUpperCase()}`;
+  mockOrders.set(subscriptionId, {
+    order: {
+      orderId: subscriptionId,
+      status: PAYMENT_ORDER_STATUS.PENDING,
+      purpose: PAYMENT_PURPOSE.SUBSCRIPTION,
+      plan,
+      createdAt: new Date().toISOString(),
+    },
+  });
+  return { approvalUrl: `https://www.sandbox.paypal.com/webapps/billing/subscriptions?ba_token=${subscriptionId}`, subscriptionId };
+});
+
+// GET /auth/me: fresh token with the account's current role/tier (used after a subscription).
+route("GET", "/auth/me", (): AuthResponse => {
+  const session = getSession();
+  if (!session) throw new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to continue.");
+  const account: User = mockAccounts.find((a) => a.id === session.userId) ?? {
+    id: session.userId,
+    email: "",
+    role: session.role,
+    tier: session.tier,
+    isVerifiedAdult: false,
+  };
+  return { token: mockToken(account) };
 });
 
 /* ------------------------------ bounties ------------------------------ */

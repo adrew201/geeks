@@ -81,7 +81,7 @@ export const router = createBrowserRouter([
           // the API but sits behind login in the app).
           { path: ROUTES.arena, element: <FeedPage /> },
           { path: ROUTES.leaderboard, element: <LeaderboardPage /> },
-          { path: ROUTES.upgrade, element: <ComingSoonPage title="Upgrade" /> },
+          { path: ROUTES.upgrade, lazy: lazyPage(() => import("./features/plans/UpgradePage.tsx")) },
           {
             element: <RequireAuth roles={[ROLE.GAMER]} />,
             children: [

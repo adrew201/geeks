@@ -45,9 +45,9 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     return withToken(await login(req.body as Parameters<typeof login>[0]));
   });
 
-  app.get("/me", { preHandler: app.authenticate }, async (req) => {
-    return { user: await getUser(req.user.sub) };
-  });
+  // Also returns a fresh token: role/tier are read from the DB, so after the subscription
+  // webhook makes a user PAID the web app can swap in a token that says so (no re-login).
+  app.get("/me", { preHandler: app.authenticate }, async (req) => withToken(await getUser(req.user.sub)));
 };
 
 export default authPlugin;

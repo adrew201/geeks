@@ -7,6 +7,7 @@ import {
   Compass,
   Crosshair,
   Flame,
+  Gem,
   LayoutDashboard,
   Trophy,
   Wallet,
@@ -77,10 +78,11 @@ const WALLET: NavItem = { label: "Wallet", to: ROUTES.wallet, icon: Wallet };
 const BOUNTIES: NavItem = { label: "Bounties", to: ROUTES.bounties, icon: Crosshair };
 const SUBMIT: NavItem = { label: "Submit Gameplay", to: ROUTES.submitGameplay, icon: CloudUpload };
 const DISCOVER: NavItem = { label: "Discover", to: ROUTES.discover, icon: Compass };
+const PLANS: NavItem = { label: "Plans", to: ROUTES.upgrade, icon: Gem };
 
 export const APP_NAV: Record<NavAudience, { sidebar: NavItem[]; tabs: NavItem[] }> = {
   gamer: {
-    sidebar: [DASHBOARD, PASSPORT, ARENA, LEADERBOARD, WALLET, BOUNTIES, SUBMIT],
+    sidebar: [DASHBOARD, PASSPORT, ARENA, LEADERBOARD, WALLET, BOUNTIES, SUBMIT, PLANS],
     tabs: [
       { ...DASHBOARD, label: "Home" },
       ARENA,
@@ -90,8 +92,8 @@ export const APP_NAV: Record<NavAudience, { sidebar: NavItem[]; tabs: NavItem[] 
     ],
   },
   coach: {
-    sidebar: [DISCOVER],
-    tabs: [DISCOVER],
+    sidebar: [DISCOVER, PLANS],
+    tabs: [DISCOVER, PLANS],
   },
   sponsor: {
     sidebar: [DISCOVER, BOUNTIES],
