@@ -182,7 +182,7 @@ function QuickActions() {
         <Link
           key={to}
           to={to}
-          className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
+          className="flex flex-col gap-2 rounded-lg bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-border-light hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none"
         >
           <span className="flex size-9 items-center justify-center rounded-md bg-primary/14 text-primary" aria-hidden="true">
             <Icon className="size-4" />
@@ -209,7 +209,7 @@ function EarningsWidget({ dashboard }: { dashboard: GamerDashboard }) {
           </Badge>
         }
       />
-      <div className="rounded-md border border-border bg-inset p-4">
+      <div className="rounded-md bg-inset p-4">
         <p className="text-11 font-bold tracking-[0.5px] text-fg-muted uppercase">Available balance</p>
         <p className="font-display text-28 font-bold">{formatMoney(dashboard.walletBalance ?? 0)}</p>
       </div>

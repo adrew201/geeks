@@ -336,9 +336,10 @@ const mockVotes = new Set<string>();
 
 route("POST", "/api/v1/clips/:id/vote", ({ params, body }) => {
   if (scenario() === "vote-fail") serverError();
-  // The real route requires voterId (until it reads the JWT).
-  if (!(body as Partial<VoteRequest> | undefined)?.voterId) {
-    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "body must have required property 'voterId'");
+  // The real route takes direction only (voter from the JWT) and rejects extra fields.
+  const direction = (body as Partial<VoteRequest> | undefined)?.direction;
+  if (direction !== "UP" && direction !== "DOWN") {
+    throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "body must have required property 'direction'");
   }
   if (scenario() === "vote-404") notFound("Clip not found.");
   if (!mockClips.some((clip) => clip.id === params.id)) notFound("Clip not found.");

@@ -346,7 +346,7 @@ function BountySummary({ bounty }: { bounty: Bounty }) {
         <Badge tone="blue">{BOUNTY_TYPE_LABEL[bounty.type]}</Badge>
       </div>
       <p className="text-14 whitespace-pre-line text-fg-secondary">{bounty.task}</p>
-      <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-inset p-4 text-12">
+      <dl className="grid grid-cols-2 gap-3 rounded-lg bg-inset p-4 text-12">
         {rows.map((row) => (
           <div key={row.label} className="flex flex-col gap-0.5">
             <dt className="text-10 font-semibold text-fg-muted uppercase">{row.label}</dt>
@@ -371,7 +371,7 @@ function HowItWorks({ className }: { className?: string }) {
       <ol className="flex flex-col gap-3">
         {steps.map((step, index) => (
           <li key={step.title} className="flex gap-3">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-inset text-11 font-bold text-fg-muted">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-inset text-11 font-bold text-fg-muted">
               {index + 1}
             </span>
             <div>
@@ -520,7 +520,7 @@ function OwnEntry({ bounty, entry }: { bounty: Bounty; entry: BountySubmission }
         </h2>
         <EntryBadge entry={entry} bounty={bounty} />
       </div>
-      <ol aria-label="Entry progress" className="grid grid-cols-4 gap-2 rounded-lg border border-border bg-inset p-3">
+      <ol aria-label="Entry progress" className="grid grid-cols-4 gap-2 rounded-lg bg-inset p-3">
         {steps.map((step, index) => (
           <li key={step.title} className="flex flex-col items-center gap-1 text-center">
             <span
@@ -711,7 +711,7 @@ function ReviewPanel({
               entry.status !== SUBMISSION_STATUS.DECLINED &&
               entry.status !== SUBMISSION_STATUS.WINNER_APPROVED;
             return (
-              <li key={entry.id} className="flex flex-col gap-3 rounded-lg border border-border bg-inset p-4">
+              <li key={entry.id} className="flex flex-col gap-3 rounded-lg bg-inset p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-14 font-bold">{entry.gamerTag ?? "Gamer"}</p>
                   <EntryBadge entry={entry} bounty={bounty} pendingWinner={entry.id === sentWinnerId && entry.status !== SUBMISSION_STATUS.WINNER_APPROVED} />

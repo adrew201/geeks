@@ -413,11 +413,8 @@ export interface FeedPage {
   nextCursor: string | null;
 }
 
-/** POST /api/v1/clips/:id/vote body (src/plugins/clips/routes.ts). */
+/** POST /api/v1/clips/:id/vote body (src/plugins/clips/routes.ts). The voter comes from the JWT; the body is direction only. */
 export interface VoteRequest {
-  // TODO: should come from the JWT once Obonyo changes the routes. Until then it's the
-  // signed-in user's id (getSession().userId).
-  voterId: string;
   direction: VoteDirection;
 }
 

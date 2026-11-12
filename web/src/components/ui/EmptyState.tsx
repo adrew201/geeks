@@ -19,7 +19,7 @@ export function EmptyState({ icon, title, description, action, card = true, clas
     <div
       className={cn(
         "flex flex-col items-center gap-3 p-12 text-center",
-        card && "rounded-lg border border-border bg-surface shadow-card",
+        card && "rounded-lg bg-surface",
         className,
       )}
     >

@@ -184,14 +184,14 @@ export function PaymentStatus({ view, copy, recipientName, summary, actions, not
       <div className="flex flex-col gap-5 px-5 pt-4 pb-6 lg:px-10 lg:pb-10">
         <ol
           aria-label="Payment progress"
-          className="flex flex-col gap-2 rounded-lg border border-border bg-inset p-4 lg:gap-4 lg:p-5"
+          className="flex flex-col gap-2 rounded-lg bg-inset p-4 lg:gap-4 lg:p-5"
         >
           {stepRows.map((step, index) => (
             <TrackerStep key={step.title} index={index + 1} {...step} />
           ))}
         </ol>
 
-        <dl className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-inset p-4 text-12 lg:grid-cols-2 lg:gap-4">
+        <dl className="grid grid-cols-1 gap-2 rounded-lg bg-inset p-4 text-12 lg:grid-cols-2 lg:gap-4">
           {summary.map((row) => (
             <div key={row.label} className="flex justify-between gap-3 lg:flex-col lg:justify-start lg:gap-0.5">
               <dt className="text-fg-muted lg:text-10 lg:font-semibold lg:uppercase">{row.label}</dt>

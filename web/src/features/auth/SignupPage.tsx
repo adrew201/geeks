@@ -141,7 +141,7 @@ export default function SignupPage() {
             Welcome to Play2Pro. You&apos;re signed in as a {ROLE_LABELS[account.role].toLowerCase()}.
           </p>
         </div>
-        <div className="w-full rounded-md border border-border bg-inset p-3 text-left text-12">
+        <div className="w-full rounded-md bg-inset p-3 text-left text-12">
           <p className="font-bold text-fg">Account Summary</p>
           <p className="mt-0.5 break-all text-fg-muted">Email: {account.email}</p>
           <p className="text-fg-muted">

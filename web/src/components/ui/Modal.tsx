@@ -119,13 +119,13 @@ export function Modal({
         className={cn(
           "flex w-full flex-col overflow-hidden bg-surface outline-none",
           sheet &&
-            "max-h-[calc(100dvh-60px)] animate-sheet-in rounded-t-xl border-t border-border-light shadow-sheet",
-          center && cn("max-h-[calc(100dvh-32px)] animate-modal-in rounded-xl border border-border-light shadow-modal", WIDTHS[size]),
+            "max-h-[calc(100dvh-60px)] animate-sheet-in rounded-t-xl border-t border-border shadow-sheet",
+          center && cn("max-h-[calc(100dvh-32px)] animate-modal-in rounded-xl border border-border shadow-modal", WIDTHS[size]),
           !sheet &&
             !center &&
             cn(
-              "max-h-[calc(100dvh-60px)] animate-sheet-in rounded-t-xl border-t border-border-light shadow-sheet",
-              "sm:max-h-[calc(100dvh-48px)] sm:animate-modal-in sm:rounded-xl sm:border sm:shadow-modal",
+              "max-h-[calc(100dvh-60px)] animate-sheet-in rounded-t-xl border-t border-border shadow-sheet",
+              "sm:max-h-[calc(100dvh-48px)] sm:animate-modal-in sm:rounded-xl sm:border sm:border-border sm:shadow-modal",
               WIDTHS[size],
             ),
         )}

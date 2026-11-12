@@ -15,12 +15,12 @@ export function fetchFeed(cursor: string | null, signal?: AbortSignal): Promise<
 }
 
 export function voteOnClip(clipId: string, direction: VoteDirection): Promise<VoteResponse> {
-  // TODO: voterId should come from the JWT once Obonyo changes the routes.
-  const voterId = getSession()?.userId;
-  if (!voterId) {
+  // The API takes the voter from the JWT and rejects extra fields (additionalProperties: false),
+  // so the body is direction only. Signed-out users are refused here, before the request.
+  if (!getSession()?.userId) {
     return Promise.reject(new ApiError(401, API_ERROR_CODE.UNAUTHENTICATED, "Please log in to vote."));
   }
-  const body: VoteRequest = { voterId, direction };
+  const body: VoteRequest = { direction };
   return api.post<VoteResponse>(`/api/v1/clips/${encodeURIComponent(clipId)}/vote`, body);
 }
 

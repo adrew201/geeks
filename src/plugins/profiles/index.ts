@@ -1,36 +1,29 @@
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { getGamerDashboard, getGamerProfile, type Viewer } from "./service.js";
+import type { FastifyPluginAsync } from "fastify";
+import { getDashboard, getPublicProfile, liveDashboardDeps } from "./dashboard.js";
 
-const idSchema = {
-  params: {
-    type: "object",
-    required: ["id"],
-    properties: { id: { type: "string", maxLength: 64 } },
-  },
-} as const;
-
-/** The signed-in user if a valid token was sent, otherwise null (the Gamer ID is public). */
-async function optionalViewer(req: FastifyRequest): Promise<Viewer | null> {
-  if (!req.headers.authorization) return null;
-  try {
-    await req.jwtVerify();
-    return req.user as Viewer;
-  } catch {
-    return null;
-  }
-}
-
+// Rabasa owns. Mounted at /api/v1 by app.ts.
 const profilesPlugin: FastifyPluginAsync = async (app) => {
-  // Public Gamer ID. A private profile is visible to its owner only.
-  app.get("/gamers/:id", { schema: idSchema }, async (req) => {
+  // Public Gamer ID. No login needed; a token, if sent, lets the owner see a private profile.
+  app.get("/gamers/:id", async (req) => {
     const { id } = req.params as { id: string };
-    return getGamerProfile(id, await optionalViewer(req));
+    let viewerId: string | undefined;
+    try {
+      await req.jwtVerify();
+      viewerId = req.user.sub;
+    } catch {
+      // anonymous visitor
+    }
+    return getPublicProfile(await liveDashboardDeps(), { viewerId, id });
   });
 
-  // README 14: owner, COACH (read-only), SPONSOR (summary only). Wallet for the owner only.
-  app.get("/gamers/:id/dashboard", { schema: idSchema, preHandler: app.authenticate }, async (req) => {
+  // Owner's dashboard: stats plus wallet. COACH/SPONSOR get the summary only.
+  app.get("/gamers/:id/dashboard", { preHandler: app.authenticate }, async (req) => {
     const { id } = req.params as { id: string };
-    return getGamerDashboard(id, req.user as Viewer);
+    return getDashboard(await liveDashboardDeps(), {
+      viewerId: req.user.sub,
+      viewerRole: req.user.role,
+      id,
+    });
   });
 };
 

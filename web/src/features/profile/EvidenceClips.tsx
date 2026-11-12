@@ -183,7 +183,7 @@ function ViewerClipCard({ clip }: { clip: Clip }) {
     <li>
       <ClipLink
         clip={clip}
-        className="flex h-full flex-col gap-3 overflow-hidden rounded-lg border border-border bg-inset transition-colors duration-200 hover:border-border-light"
+        className="flex h-full flex-col gap-3 overflow-hidden rounded-lg bg-inset transition-colors duration-200 hover:border-border-light"
       >
         <div className="flex h-[140px] items-center justify-center bg-thumb-gradient">
           <CirclePlay className="size-10 text-white/80" aria-hidden="true" />
@@ -207,7 +207,7 @@ function OwnerClipCard({ clip }: { clip: Clip }) {
     <li>
       <ClipLink
         clip={clip}
-        className="block h-full overflow-hidden rounded-md border border-border bg-inset transition-[transform,border-color] duration-200 ease-[ease] hover:border-border-light motion-safe:hover:-translate-y-0.5"
+        className="block h-full overflow-hidden rounded-md bg-inset transition-[transform,border-color] duration-200 ease-[ease] hover:border-border-light motion-safe:hover:-translate-y-0.5"
       >
         <div className="flex h-[130px] items-center justify-center bg-surface-hover">
           <PlayOverlay size="md" />
@@ -239,7 +239,7 @@ function ClipCarousel({ clips }: { clips: Clip[] }) {
         const source = clipSource(clip.url);
         return (
           <li key={clip.id} className="w-[220px] shrink-0 snap-start">
-            <ClipLink clip={clip} className="block overflow-hidden rounded-md border border-border bg-inset">
+            <ClipLink clip={clip} className="block overflow-hidden rounded-md bg-inset">
               <div className="relative flex h-[100px] items-center justify-center bg-surface-hover">
                 <PlayOverlay size="sm" />
                 {isClipAnalysed(clip) && <TrustBadge level="ai" size="sm" className="absolute top-1.5 right-1.5" />}
