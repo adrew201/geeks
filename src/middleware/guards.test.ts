@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 import { setupCore } from "../lib/core.js";
-import { requireRole, requireTier, requireVerifiedAdult } from "./guards.js";
+import { requireRole, requireTier } from "./guards.js";
 
 // In-memory users. Everything else is real: JWT, app.authenticate and the error handler.
 const db = vi.hoisted(() => {
@@ -22,7 +22,6 @@ async function buildApp() {
   app.register(async (a) => {
     a.get("/coach-only", { preHandler: [a.authenticate, requireRole("COACH")] }, async () => ({ ok: true }));
     a.get("/paid-only", { preHandler: [a.authenticate, requireTier("PAID")] }, async () => ({ ok: true }));
-    a.get("/adult-only", { preHandler: [a.authenticate, requireVerifiedAdult()] }, async () => ({ ok: true }));
   });
   await app.ready();
   return app;
@@ -44,7 +43,7 @@ describe("guards", () => {
     (await buildApp()).jwt.sign({ sub, role, tier });
 
   it("returns 401 without a token", async () => {
-    expect((await get("/adult-only")).statusCode).toBe(401);
+    expect((await get("/paid-only")).statusCode).toBe(401);
   });
 
   it("requireRole allows a listed role and rejects others", async () => {
@@ -62,14 +61,7 @@ describe("guards", () => {
     expect((await get("/paid-only", await token("adult", "GAMER", "FREE"))).statusCode).toBe(200);
   });
 
-  it("requireVerifiedAdult blocks unverified users", async () => {
-    const res = await get("/adult-only", await token("minor"));
-    expect(res.statusCode).toBe(403);
-    expect(res.json().error.code).toBe("NOT_VERIFIED_ADULT");
-    expect((await get("/adult-only", await token("adult"))).statusCode).toBe(200);
-  });
-
   it("returns 401 when the token's user no longer exists", async () => {
-    expect((await get("/adult-only", await token("deleted"))).statusCode).toBe(401);
+    expect((await get("/paid-only", await token("deleted"))).statusCode).toBe(401);
   });
 });

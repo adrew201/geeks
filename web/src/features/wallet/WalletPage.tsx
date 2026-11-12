@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgGridReact } from "ag-grid-react";
-import { Download, Info, RefreshCw, Share2, ShieldAlert, Wallet } from "lucide-react";
+import { Download, Info, RefreshCw, Share2, Wallet } from "lucide-react";
 import { PageContainer, PageHeader } from "../../components/layout/PageHeader.tsx";
 import { ROUTES } from "../../components/layout/nav-config.ts";
 import { StatGrid, StatTile, StatTileSkeleton } from "../../components/data/StatTile.tsx";
@@ -37,8 +37,8 @@ import { WithdrawModal } from "./WithdrawModal.tsx";
 //   D/E Pending/Failed focus are gone: ledger rows only exist once PayPal's webhook is
 //   verified, so there is no pending or failed row to show.
 // The period pills filter the metrics (except balance), the charts and the table; 08D's pills
-// had no handlers. Export = AG Grid CSV of the visible rows. Withdraw is gated by
-// isVerifiedAdult (decision 3, README §18).
+// had no handlers. Export = AG Grid CSV of the visible rows. Withdraw is open to every
+// account (no age or verification gate).
 
 export default function WalletPage() {
   const { status, dashboard, error, reload, refreshing } = useOwnDashboard();
@@ -54,9 +54,6 @@ export default function WalletPage() {
 
   const entries = useMemo(() => dashboard?.walletEntries ?? [], [dashboard]);
   const balance = dashboard ? (dashboard.walletBalance ?? sumBalance(entries)) : 0;
-  // UNCONFIRMED: the owner's isVerifiedAdult is only known if the Gamer ID carries it. When it's
-  // missing the button stays on and the API's 403 NOT_VERIFIED_ADULT is handled in the modal.
-  const ineligible = dashboard?.profile.isVerifiedAdult === false;
   const hasEntries = entries.length > 0;
 
   function exportCsv() {
@@ -80,7 +77,7 @@ export default function WalletPage() {
               <Button
                 variant="paypal"
                 size={isDesktop ? "md" : "sm"}
-                disabled={ineligible || balance <= 0}
+                disabled={balance <= 0}
                 onClick={() => setWithdrawing(true)}
               >
                 <Wallet className="size-3.5" aria-hidden="true" />
@@ -109,7 +106,6 @@ export default function WalletPage() {
         )}
         {status === "ready" && dashboard && (
           <>
-            {ineligible && <IneligibleNotice />}
             {hasEntries ? (
               <WalletBody
                 dashboard={dashboard}
@@ -241,20 +237,6 @@ function PeriodPills({ value, onChange }: { value: WalletPeriod; onChange: (peri
           {option.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function IneligibleNotice() {
-  return (
-    <div role="note" className="flex items-start gap-3 rounded-lg border border-warning/35 bg-warning/14 p-4">
-      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-      <p className="text-13">
-        <span className="font-bold">Withdrawals are locked.</span>{" "}
-        <span className="text-fg-secondary">
-          A verified adult PayPal account is required to withdraw. Your balance stays in your wallet until then.
-        </span>
-      </p>
     </div>
   );
 }

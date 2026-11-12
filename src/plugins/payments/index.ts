@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createDonation, getDonationOrder } from "./donations.js";
 import { getWallet, withdraw } from "./wallet.js";
-import { requireVerifiedAdult } from "../../middleware/guards.js";
 import { getSubscriptionOrder, requestCancel, startSubscription, type PlanName } from "./subscriptions.js";
 
 const subscribeSchema = {
@@ -45,7 +44,7 @@ const orderSchema = {
 } as const;
 
 const paymentsPlugin: FastifyPluginAsync = async (app) => {
-  // Any signed-in user can donate; the recipient must be a verified adult (checked in createDonation).
+  // Any signed-in user can donate to any gamer.
   app.post("/donations", { schema: donationSchema, preHandler: app.authenticate }, async (req, reply) => {
     const { gamerId, amount } = req.body as { gamerId: string; amount: number };
     const order = await createDonation({ donorId: req.user.sub, gamerId, amountCents: amount });
@@ -63,10 +62,10 @@ const paymentsPlugin: FastifyPluginAsync = async (app) => {
   // Own wallet only: there is no :userId, the user comes from the token.
   app.get("/wallet", { preHandler: app.authenticate }, async (req) => getWallet(req.user.sub));
 
-  // README 18: withdrawing needs a verified adult. Money goes to the PayPal email stored on the user.
+  // Any signed-in account may withdraw its own balance. Money goes to the PayPal email stored on the user.
   app.post(
     "/wallet/withdraw",
-    { schema: withdrawSchema, preHandler: [app.authenticate, requireVerifiedAdult()] },
+    { schema: withdrawSchema, preHandler: app.authenticate },
     async (req, reply) => {
       const { amount } = req.body as { amount: number };
       return reply.code(201).send(await withdraw(req.user.sub, amount));

@@ -4,14 +4,12 @@ import { getUser, login, signup, type PublicUser } from "./service.js";
 const signupSchema = {
   body: {
     type: "object",
-    required: ["email", "password", "displayName", "role", "dateOfBirth"],
+    required: ["email", "password", "displayName", "role"],
     additionalProperties: false,
     properties: {
       email: { type: "string", format: "email", maxLength: 200 },
       password: { type: "string", minLength: 8, maxLength: 128 },
       displayName: { type: "string", minLength: 1, maxLength: 60 },
-      // YYYY-MM-DD. The age limits are checked in signup() (src/lib/age.ts).
-      dateOfBirth: { type: "string", format: "date" },
       // ADMIN can never be self-assigned
       role: { type: "string", enum: ["GAMER", "COACH", "SPONSOR"] },
     },

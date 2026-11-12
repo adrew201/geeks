@@ -119,12 +119,11 @@ describe("POST /api/v1/donations", () => {
     expect(db.state.donations[0]).toMatchObject({ feeCents: 25, netCents: 975 });
   });
 
-  it("returns 403 NOT_VERIFIED_ADULT when the recipient is a minor, without calling PayPal", async () => {
+  it("lets any gamer receive donations, verified or not", async () => {
     const res = await donate({ gamerId: MINOR, amount: 500 });
-    expect(res.statusCode).toBe(403);
-    expect(res.json().error.code).toBe("NOT_VERIFIED_ADULT");
-    expect(paypal.createOrder).not.toHaveBeenCalled();
-    expect(db.state.donations).toEqual([]);
+    expect(res.statusCode).toBe(201);
+    expect(paypal.createOrder).toHaveBeenCalled();
+    expect(db.state.donations[0]).toMatchObject({ recipientGamerId: MINOR, amountCents: 500 });
   });
 
   it("lets an unverified donor give to a verified gamer", async () => {
