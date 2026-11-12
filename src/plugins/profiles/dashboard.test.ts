@@ -36,7 +36,6 @@ describe("getDashboard", () => {
     expect(d.profile).toMatchObject({
       gamerTags: ["ShadowViper"],
       games: ["Valorant", "CS2"],
-      isVerifiedAdult: true,
       visibility: "PUBLIC",
     });
     expect(d.radScoreHistory).toEqual([{ date: "2026-11-01T00:00:00.000Z", radScore: 80 }]);
@@ -69,21 +68,11 @@ describe("getDashboard", () => {
 });
 
 describe("getPublicProfile", () => {
-  it("shows a public profile to anyone, with isVerifiedAdult so the Donate button can gate", async () => {
-    const p = await getPublicProfile(deps(), { id: "user-1" });
-    expect(p).toMatchObject({ id: "prof-1", gamerTags: ["ShadowViper"], isVerifiedAdult: true });
-  });
-
-  it("lets an unverified gamer receive donations when 18+ by date of birth, never exposing the date", async () => {
-    const withDob = (dateOfBirth: Date | null) =>
-      deps({ findProfile: async () => ({ ...profile, user: { region: "KE", isVerifiedAdult: false, dateOfBirth } }) });
-    const adult = await getPublicProfile(withDob(new Date("2000-01-01T00:00:00Z")), { id: "user-1" });
-    expect(adult.isVerifiedAdult).toBe(true);
-    expect(JSON.stringify(adult)).not.toContain("2000-01-01");
-    const nextYear = new Date();
-    nextYear.setUTCFullYear(nextYear.getUTCFullYear() - 17);
-    expect((await getPublicProfile(withDob(nextYear), { id: "user-1" })).isVerifiedAdult).toBe(false);
-    expect((await getPublicProfile(withDob(null), { id: "user-1" })).isVerifiedAdult).toBe(false);
+  it("shows a public profile to anyone, with no adult flag so the Donate button always shows", async () => {
+    const unverified = deps({ findProfile: async () => ({ ...profile, user: { region: "KE", isVerifiedAdult: false } }) });
+    const p = await getPublicProfile(unverified, { id: "user-1" });
+    expect(p).toMatchObject({ id: "prof-1", gamerTags: ["ShadowViper"] });
+    expect(p).not.toHaveProperty("isVerifiedAdult");
   });
 
   it("hides a private profile from visitors and other users but not from its owner", async () => {

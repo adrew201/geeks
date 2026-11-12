@@ -130,11 +130,10 @@ describe("POST /api/v1/wallet/withdraw", () => {
     expect(withdrawals()).toHaveLength(1);
   });
 
-  it("blocks users who aren't verified adults", async () => {
+  it("lets any account withdraw, verified or not", async () => {
     credit(MINOR, 500);
     const res = await call("POST", "/api/v1/wallet/withdraw", MINOR, { amount: 100 });
-    expect(res.statusCode).toBe(403);
-    expect(res.json().error.code).toBe("NOT_VERIFIED_ADULT");
+    expect(res.statusCode).toBe(201);
   });
 
   it("needs a stored PayPal email, and ignores any email sent in the request", async () => {

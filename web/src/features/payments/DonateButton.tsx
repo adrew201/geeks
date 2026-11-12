@@ -12,8 +12,7 @@ import { DonationModal } from "./DonationModal.tsx";
 // decides that). Sits where 12D's header "Unlock Exclusive Footage" button and 12M's
 // full-width unlock button were (both removed, decision 3).
 // - Signed out: go to /login, then come back here with the modal open (?donate=1).
-// - Recipient not a verified adult (README §18): when the profile says so, the button is
-//   disabled with a note; otherwise POST /donations' 403 is handled inside the modal.
+// - Any gamer can receive donations: there is no age or verification gate.
 
 export interface DonateButtonProps {
   profile: GamerProfile;
@@ -26,10 +25,8 @@ export function DonateButton({ profile, layout }: DonateButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const eligible = profile.isVerifiedAdult !== false;
   const requested = searchParams.get(DONATE_PARAM) === "1";
-  const [open, setOpen] = useState(() => requested && Boolean(session) && eligible);
-  const name = profile.gamerTags[0] ?? "this gamer";
+  const [open, setOpen] = useState(() => requested && Boolean(session));
   const mobile = layout === "mobile";
 
   // ?donate=1 is a one-shot request: drop it so refresh/back don't reopen the modal.
@@ -60,18 +57,6 @@ export function DonateButton({ profile, layout }: DonateButtonProps) {
       from: { pathname: location.pathname, search: `?${search.toString()}`, hash: location.hash },
     };
     navigate(ROUTES.login, { state });
-  }
-
-  if (!eligible) {
-    return (
-      <div className={mobile ? "flex flex-col gap-1.5" : "flex items-center gap-3"}>
-        <Button variant="secondary" disabled fullWidth={mobile} size={mobile ? "lg" : "md"}>
-          <HandHeart className="size-4" aria-hidden="true" />
-          Donate
-        </Button>
-        <p className="text-11 text-fg-muted">{name} can't receive donations yet.</p>
-      </div>
-    );
   }
 
   return (

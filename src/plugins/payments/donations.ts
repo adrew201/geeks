@@ -1,7 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
-import { canReceiveDonations } from "../../lib/age.js";
 import { createOrder, type Capture } from "./service.js";
 
 // Donation flow (README 15.1). The fee is fixed when the donation is created; the wallet is
@@ -20,15 +19,11 @@ function feeBps(recipientTier: "FREE" | "PAID"): number {
 export async function createDonation(input: { donorId: string; gamerId: string; amountCents: number }) {
   const recipient = await prisma.user.findFirst({
     where: { role: "GAMER", OR: [{ id: input.gamerId }, { profile: { id: input.gamerId } }] },
-    select: { id: true, tier: true, isVerifiedAdult: true, dateOfBirth: true },
+    select: { id: true, tier: true },
   });
   if (!recipient) throw new AppError(404, "GAMER_NOT_FOUND", "Gamer not found");
   if (recipient.id === input.donorId) throw new AppError(400, "CANNOT_DONATE_TO_SELF", "You can't donate to yourself");
-  // README 18: receiving donations needs an adult: verified, or 18+ by the date of birth given at
-  // signup (src/lib/age.ts). The check is on the recipient, not the donor.
-  if (!canReceiveDonations(recipient)) {
-    throw new AppError(403, "NOT_VERIFIED_ADULT", "This gamer can't receive donations yet");
-  }
+  // Any gamer can receive donations: there is no age or verification check.
 
   // Round the fee down, in the gamer's favour.
   const feeCents = Math.floor((input.amountCents * feeBps(recipient.tier)) / 10_000);

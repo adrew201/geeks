@@ -4,7 +4,6 @@
 // `:id` is the User id first (the web links use it), then the gamer tag, then the profile id.
 // Wallet balance = SUM(amountCents) over all of the user's entries (vault: Wallet Ledger).
 import { AppError } from "../../lib/errors.js";
-import { canReceiveDonations } from "../../lib/age.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ENTRY_LIMIT = 200;
@@ -19,8 +18,7 @@ export type ProfileRow = {
   radScore: number;
   aiSkillSummary: string | null;
   visibility: boolean;
-  /** dateOfBirth: self-declared at signup; optional so older callers and fixtures still fit. */
-  user: { region: string | null; isVerifiedAdult: boolean; dateOfBirth?: Date | null };
+  user: { region: string | null; isVerifiedAdult: boolean };
 };
 export type EntryRow = {
   id: string;
@@ -50,9 +48,8 @@ function toWebProfile(p: ProfileRow) {
     aiSummary: p.aiSkillSummary ? { summary: p.aiSkillSummary, strengths: [] as string[], roles: p.roles } : null,
     radScore: p.radScore,
     visibility: p.visibility ? "PUBLIC" : "PRIVATE",
-    // Gates the Donate button, so it carries the same rule as POST /donations: verified, or 18+
-    // by the date of birth given at signup (src/lib/age.ts). The birth date is never sent.
-    isVerifiedAdult: canReceiveDonations({ isVerifiedAdult: p.user.isVerifiedAdult, dateOfBirth: p.user.dateOfBirth ?? null }),
+    // No isVerifiedAdult here on purpose: donations and withdrawals are open to everyone, and the
+    // web app shows the Donate / Withdraw buttons whenever the field is absent.
   };
 }
 
@@ -137,7 +134,7 @@ export async function liveDashboardDeps(): Promise<DashboardDeps> {
           radScore: true,
           aiSkillSummary: true,
           visibility: true,
-          user: { select: { region: true, isVerifiedAdult: true, dateOfBirth: true } },
+          user: { select: { region: true, isVerifiedAdult: true } },
         },
       }),
     radHistory: (profileId) =>
