@@ -9,7 +9,7 @@ services:
     plan: free
     region: oregon
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: npx prisma migrate deploy && npm start
+    startCommand: npm start # no migrate on boot: see Rabasa Change Log 11 Nov (P3009). Run migrations by hand.
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION

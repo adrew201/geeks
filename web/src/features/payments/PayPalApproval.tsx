@@ -7,7 +7,7 @@ import { Spinner } from "../../components/ui/Spinner.tsx";
 import { formatMoney } from "../../lib/format-money.ts";
 import type { Cents } from "../../types/api.ts";
 import type { PaymentApproval } from "./api.ts";
-import { mockReturnPath, safeApprovalUrl, simulateApproval } from "./approval.ts";
+import { mockReturnPath, safeApprovalUrl, shouldSimulateApproval } from "./approval.ts";
 
 // 13D state 3 "Approval Link Generated" + the useful half of page 14, as one step:
 // the order exists, so the payer is sent to PayPal straight away.
@@ -32,8 +32,11 @@ export function PayPalApproval({ approval, amount, onUnsafeUrl }: PayPalApproval
   const started = useRef(false);
   const [blocked, setBlocked] = useState(false);
 
+  // Decided per order: a mock order returns in-app; a real order goes to PayPal.
+  const simulate = shouldSimulateApproval(approval.orderId);
+
   function go() {
-    if (simulateApproval) {
+    if (simulate) {
       navigate(mockReturnPath(approval.orderId));
       return;
     }
@@ -49,7 +52,7 @@ export function PayPalApproval({ approval, amount, onUnsafeUrl }: PayPalApproval
     // Once only (StrictMode runs effects twice in dev).
     if (started.current) return;
     started.current = true;
-    if (!simulateApproval && !safeApprovalUrl(approval.approvalUrl)) {
+    if (!simulate && !safeApprovalUrl(approval.approvalUrl)) {
       onUnsafeUrl();
       return;
     }
