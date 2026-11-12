@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
 import { getWallet } from "../payments/wallet.js";
+import { canReceiveDonations } from "../../lib/age.js";
 
 // Public Gamer ID (GET /gamers/:id) and the gamer dashboard (GET /gamers/:id/dashboard), in
 // the shape the web app's GamerProfile / GamerDashboard types expect (web/src/types/api.ts).
@@ -18,7 +19,7 @@ async function findProfile(id: string) {
   if (!UUID.test(id)) throw new AppError(404, "GAMER_NOT_FOUND", "Gamer not found");
   const profile = await prisma.gamerProfile.findFirst({
     where: { OR: [{ id }, { userId: id }] },
-    include: { user: { select: { region: true, isVerifiedAdult: true } } },
+    include: { user: { select: { region: true, isVerifiedAdult: true, dateOfBirth: true } } },
   });
   if (!profile) throw new AppError(404, "GAMER_NOT_FOUND", "Gamer not found");
   return profile;
@@ -37,8 +38,9 @@ function toGamerProfile(p: ProfileRow) {
     aiSummary: p.aiSkillSummary ? { summary: p.aiSkillSummary, strengths: [] as string[], roles: p.roles } : null,
     radScore: p.radScore,
     visibility: p.visibility ? ("PUBLIC" as const) : ("PRIVATE" as const),
-    // The web app hides the donate button when this is false.
-    isVerifiedAdult: p.user.isVerifiedAdult,
+    // The web app hides the donate button when this is false, so it carries the donation rule
+    // (verified, or 18+ by date of birth). The birth date itself is never exposed.
+    isVerifiedAdult: canReceiveDonations(p.user),
   };
 }
 

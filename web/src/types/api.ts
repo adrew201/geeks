@@ -202,6 +202,8 @@ export interface SignupRequest {
   displayName: string;
   /** Sent in whichever format API_ROLE_FORMAT selects (lib/role-adapter.ts). */
   role: ApiRole;
+  /** YYYY-MM-DD, required. 13+ to join; 18+ may receive donations. */
+  dateOfBirth: string;
 }
 
 export interface LoginRequest {

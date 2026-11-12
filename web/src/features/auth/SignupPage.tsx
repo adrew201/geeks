@@ -16,9 +16,11 @@ import { AuthCardBody, AuthHeading, FormAlert, TermsCheckbox } from "./AuthParts
 import { RoleStep } from "./RoleStep.tsx";
 import { useFocusFirstInvalid } from "./use-focus-first-invalid.ts";
 import {
+  DATE_OF_BIRTH_HINT,
   PASSWORD_RULE,
   TERMS_REQUIRED,
   hasErrors,
+  validateDateOfBirth,
   validateDisplayName,
   validateEmail,
   validateNewPassword,
@@ -33,10 +35,11 @@ import {
 //   C Reg Success    → step "success"
 // (D Login is LoginPage; E Forgot Password / F Reset Sent are hidden: no endpoint.)
 //
-// 02D "Full Name" is the API's required `displayName`. No date of birth or age is collected.
+// 02D "Full Name" is the API's required `displayName`. Date of birth is required: 13+ to join,
+// and gamers 18+ by it may receive donations (the API checks both again).
 
 type Step = "role" | "details" | "submitting" | "success";
-type SignupField = "displayName" | "email" | "password" | "terms";
+type SignupField = "displayName" | "email" | "dateOfBirth" | "password" | "terms";
 
 export default function SignupPage() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
@@ -47,6 +50,7 @@ export default function SignupPage() {
   const [role, setRole] = useState<Role>(ROLE.GAMER);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [password, setPassword] = useState("");
   const [terms, setTerms] = useState(false);
   const [errors, setErrors] = useState<FieldErrors<SignupField>>({});
@@ -65,6 +69,7 @@ export default function SignupPage() {
     const nextErrors: FieldErrors<SignupField> = {
       displayName: validateDisplayName(displayName) ?? undefined,
       email: validateEmail(email) ?? undefined,
+      dateOfBirth: validateDateOfBirth(dateOfBirth) ?? undefined,
       password: validateNewPassword(password) ?? undefined,
       terms: terms ? undefined : TERMS_REQUIRED,
     };
@@ -78,7 +83,7 @@ export default function SignupPage() {
     const cleanEmail = email.trim();
     setStep("submitting");
     try {
-      const token = await signup(cleanEmail, password, role, displayName.trim());
+      const token = await signup(cleanEmail, password, role, displayName.trim(), dateOfBirth);
       const session = setToken(token);
       if (!session) {
         throw new Error("Your account was created, but we couldn't start a session. Please log in.");
@@ -191,6 +196,24 @@ export default function SignupPage() {
             onChange={(event) => {
               setEmail(event.target.value);
               clearError("email");
+            }}
+          />
+        </Field>
+        <Field
+          label="Date of Birth"
+          hint={role === ROLE.GAMER ? DATE_OF_BIRTH_HINT : undefined}
+          error={errors.dateOfBirth}
+          required
+        >
+          <Input
+            type="date"
+            name="bday"
+            autoComplete="bday"
+            max={new Date().toISOString().slice(0, 10)}
+            value={dateOfBirth}
+            onChange={(event) => {
+              setDateOfBirth(event.target.value);
+              clearError("dateOfBirth");
             }}
           />
         </Field>

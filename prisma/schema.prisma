@@ -174,6 +174,7 @@ model User {
   role            Role      @default(GAMER)
   tier            Tier      @default(FREE) // only ever set to PAID by a verified subscription webhook
   isVerifiedAdult Boolean   @default(false) // required for withdraw, bounty create/entry, receiving donations
+  dateOfBirth     DateTime? @db.Date // self-declared at signup; 18+ may receive donations (src/lib/age.ts)
   kycVerifiedAt   DateTime?
   paypalPayerId   String?
   paypalEmail     String? // payout receiver

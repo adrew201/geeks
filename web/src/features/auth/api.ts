@@ -28,8 +28,14 @@ export async function login(credentials: LoginRequest): Promise<string> {
  * Creates the account and returns a token. The signup response is undocumented, so when it
  * carries no token we log in with the same credentials.
  */
-export async function signup(email: string, password: string, role: Role, displayName: string): Promise<string> {
-  const body: SignupRequest = { email, password, displayName, role: toApiRole(role) };
+export async function signup(
+  email: string,
+  password: string,
+  role: Role,
+  displayName: string,
+  dateOfBirth: string,
+): Promise<string> {
+  const body: SignupRequest = { email, password, displayName, role: toApiRole(role), dateOfBirth };
   const response = await api.post<AuthResponse | undefined>("/auth/signup", body, { auth: false });
   return tokenFrom(response) ?? login({ email, password });
 }
