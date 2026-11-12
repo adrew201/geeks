@@ -50,7 +50,10 @@ export const simulateApproval = !usesRealApi("/api/v1/orders");
  * even when the rest of the app runs on mocks (hybrid mode, VITE_REAL_API includes /api/v1/donations).
  */
 export function shouldSimulateApproval(orderId: string): boolean {
-  return simulateApproval && orderId.startsWith("MOCK-");
+  // Mock ids: donations/bounties "MOCK-ORDER-…", subscriptions "I-MOCK…". PayPal never issues
+  // these, so sending the payer to PayPal with one only shows a PayPal error page. Simulate them
+  // whatever the order-status setting is.
+  return /^(I-)?MOCK/.test(orderId);
 }
 
 /* ------------------------------ checkout context ------------------------------ */

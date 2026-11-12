@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
-import { createOrder, type Capture } from "./service.js";
+import { captureCheckoutOrder, createOrder, type Capture } from "./service.js";
 
 // Donation flow (README 15.1). The fee is fixed when the donation is created; the wallet is
 // credited only from a PayPal capture (capture response or verified webhook), never from the client.
@@ -97,6 +97,30 @@ export async function failDonation(tx: Prisma.TransactionClient, donationId: str
   await tx.donation.updateMany({ where: { id: donationId, status: "PENDING" }, data: { status: "FAILED" } });
 }
 
+/**
+ * Tries to capture a PENDING donation's order and credit the gamer. Uses the same
+ * PayPal-Request-Id as the webhook handler, so PayPal captures at most once, and
+ * completeDonation only writes ledger rows for the call that claims the donation.
+ * Not approved yet (or PayPal unreachable): the donation stays PENDING and the next poll retries.
+ * Returns the donation's status afterwards.
+ */
+async function captureIfApproved(donationId: string, orderId: string): Promise<string> {
+  let capture: Capture | undefined;
+  try {
+    capture = await captureCheckoutOrder(orderId, `capture-${donationId}`);
+  } catch (e) {
+    const issue = (e as { issue?: string }).issue;
+    // ORDER_NOT_APPROVED is the normal answer until the payer finishes on PayPal.
+    if (issue !== "ORDER_NOT_APPROVED") console.warn({ donationId, issue, err: String(e) }, "Donation capture on poll failed");
+    return "PENDING";
+  }
+  if (!capture) return "PENDING";
+  const done = capture;
+  await prisma.$transaction((tx) => completeDonation(tx, donationId, done));
+  const after = await prisma.donation.findUnique({ where: { id: donationId }, select: { status: true } });
+  return after?.status ?? "PENDING";
+}
+
 /** Status for the /pay/return page. Only the donor or the recipient may read it. */
 export async function getDonationOrder(orderId: string, userId: string) {
   const d = await prisma.donation.findUnique({
@@ -106,9 +130,12 @@ export async function getDonationOrder(orderId: string, userId: string) {
   if (!d || (d.donorId !== userId && d.recipientGamerId !== userId)) {
     throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
   }
+  // The donor is back from PayPal and polling: capture here rather than depend only on the
+  // CHECKOUT.ORDER.APPROVED webhook (which may be late, or not configured on a deployment).
+  const status = d.status === "PENDING" && d.donorId === userId ? await captureIfApproved(d.id, orderId) : d.status;
   return {
     orderId,
-    status: d.status, // PENDING | COMPLETED | FAILED
+    status, // PENDING | COMPLETED | FAILED
     amount: d.amountCents,
     purpose: "DONATION" as const,
     gamerId: d.recipient.profile?.id ?? d.recipientGamerId,
