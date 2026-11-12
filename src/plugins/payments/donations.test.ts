@@ -51,7 +51,8 @@ const db = vi.hoisted(() => {
       return data;
     },
   };
-  return { state, prisma: { user, donation, walletEntry } };
+  const tx = { user, donation, walletEntry };
+  return { state, prisma: { ...tx, $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) } };
 });
 const paypal = vi.hoisted(() => ({
   createOrder: vi.fn(),
@@ -166,6 +167,29 @@ describe("GET /api/v1/orders/:id", () => {
     expect(mine.json()).toMatchObject({ orderId: "ORDER-1", status: "PENDING", amount: 500, purpose: "DONATION", gamerId: ADULT_PROFILE });
     const other = await app.inject({ method: "GET", url: "/api/v1/orders/ORDER-1", headers: as(MINOR) });
     expect(other.statusCode).toBe(404);
+  });
+
+  it("captures on the donor's poll once PayPal has approved, crediting the gamer once", async () => {
+    await donate({ gamerId: ADULT, amount: 500 });
+    const d = db.state.donations[0];
+    const app = await buildApp();
+    const donor = { authorization: `Bearer ${app.jwt.sign({ sub: DONOR, role: "GAMER", tier: "FREE" })}` };
+
+    // Not approved yet: stays PENDING, nothing credited.
+    paypal.captureCheckoutOrder.mockRejectedValueOnce(Object.assign(new Error("422"), { issue: "ORDER_NOT_APPROVED" }));
+    const waiting = await app.inject({ method: "GET", url: "/api/v1/orders/ORDER-1", headers: donor });
+    expect(waiting.json().status).toBe("PENDING");
+
+    // Approved: the poll captures with the webhook's request id and completes the donation.
+    paypal.captureCheckoutOrder.mockResolvedValue({ captureId: "CAP-1", status: "COMPLETED", amountCents: 500, currency: "USD" });
+    const done = await app.inject({ method: "GET", url: "/api/v1/orders/ORDER-1", headers: donor });
+    expect(done.json(), done.body).toMatchObject({ status: "COMPLETED" });
+    expect(paypal.captureCheckoutOrder).toHaveBeenLastCalledWith("ORDER-1", `capture-${d.id}`);
+
+    // Later polls don't capture again.
+    paypal.captureCheckoutOrder.mockClear();
+    await app.inject({ method: "GET", url: "/api/v1/orders/ORDER-1", headers: donor });
+    expect(paypal.captureCheckoutOrder).not.toHaveBeenCalled();
   });
 });
 
