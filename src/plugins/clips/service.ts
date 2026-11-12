@@ -59,6 +59,60 @@ export function toApiClip(row: Clip) {
 
 const FEED_PAGE_SIZE = 20;
 
+// README §14/§19: house ads interleave into the feed, one ad every N clips.
+// N comes from ADS_EVERY_N_CLIPS (.env.example, default 5).
+const ADS_EVERY_N_CLIPS = Math.max(1, Number.parseInt(process.env.ADS_EVERY_N_CLIPS ?? "5", 10) || 5);
+
+export interface HouseAd {
+  id: string;
+  title: string;
+  body: string;
+  ctaLabel: string;
+  ctaUrl: string;
+}
+
+// AdCampaign has no body-text column, so body stays empty until one exists.
+export function toHouseAd(campaign: {
+  id: string;
+  campaignName: string;
+  clickThroughUrl: string | null;
+}): HouseAd {
+  return {
+    id: campaign.id,
+    title: campaign.campaignName,
+    body: "",
+    ctaLabel: "Learn more",
+    ctaUrl: campaign.clickThroughUrl ?? "",
+  };
+}
+
+async function getHouseAd() {
+  return prisma.adCampaign.findFirst({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export type FeedClipItem = Awaited<ReturnType<typeof getFeedPage>>["items"][number];
+export type FeedItem = FeedClipItem | { kind: "ad"; ad: HouseAd };
+
+// Migration plan O1: paged clips with one house ad every ADS_EVERY_N_CLIPS
+// clips. includeAds lets future tier guards opt paid users out; without auth
+// every caller sees ads for now. No ACTIVE campaign means no ad items.
+export async function getFeedWithAds(cursor?: string, game?: string, includeAds = true) {
+  const page = await getFeedPage(cursor, game);
+  if (!includeAds) return page;
+  const campaign = await getHouseAd();
+  if (!campaign) return page;
+  const ad = toHouseAd(campaign);
+  const items: FeedItem[] = [];
+  page.items.forEach((item, index) => {
+    items.push(item);
+    if ((index + 1) % ADS_EVERY_N_CLIPS === 0) items.push({ kind: "ad" as const, ad });
+  });
+  return { ...page, items };
+}
+
 // GET /api/v1/feed?cursor= (README §14). Cursor is an offset into the Elo-ranked list.
 // Ads and "exclude own clips" come with the ads and auth work.
 export async function getFeedPage(cursor?: string, game?: string) {
@@ -88,14 +142,6 @@ export async function getFeedPage(cursor?: string, game?: string) {
     })),
     nextCursor: rows.length > FEED_PAGE_SIZE ? String(skip + FEED_PAGE_SIZE) : null,
   };
-}
-
-export function getFeed(game?: string) {
-  return prisma.clip.findMany({
-    where: { status: "ACTIVE", ...(game ? { game } : {}) },
-    orderBy: [{ eloRating: "desc" }],
-    take: 20,
-  });
 }
 
 export interface VoteInput {

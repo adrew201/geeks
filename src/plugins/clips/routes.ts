@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createClip, getFeed, getFeedPage, toApiClip, voteOnClip } from "./service.js";
+import { createClip, getFeedWithAds, toApiClip, voteOnClip } from "./service.js";
 
 function sendError(reply: { code(n: number): any; send(e: unknown): unknown }, err: unknown) {
   const status =
@@ -47,16 +47,17 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 
-  // README §14 feed: { items, nextCursor }.
-  app.get("/feed", async (req) => {
+  // Migration plan O1: GET /api/v1/clips/feed is the paged contract
+  // { items, nextCursor } with house ads interleaved.
+  app.get("/clips/feed", async (req) => {
     const q = req.query as { cursor?: string; game?: string };
-    return getFeedPage(q.cursor, q.game);
+    return getFeedWithAds(q.cursor, q.game);
   });
 
-  // Older raw feed, kept so existing callers don't break.
-  app.get("/clips/feed", async (req) => {
-    const game = (req.query as { game?: string }).game;
-    return getFeed(game);
+  // Temporary alias until Nigel's N-feed cut-over moves the web to /clips/feed.
+  app.get("/feed", async (req) => {
+    const q = req.query as { cursor?: string; game?: string };
+    return getFeedWithAds(q.cursor, q.game);
   });
 
   app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
