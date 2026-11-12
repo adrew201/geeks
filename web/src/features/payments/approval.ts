@@ -45,6 +45,14 @@ export function mockReturnPath(orderId: string): string {
  */
 export const simulateApproval = !usesRealApi("/api/v1/orders");
 
+/**
+ * Only orders the mock API created are simulated. A real PayPal order must always go to PayPal,
+ * even when the rest of the app runs on mocks (hybrid mode, VITE_REAL_API includes /api/v1/donations).
+ */
+export function shouldSimulateApproval(orderId: string): boolean {
+  return simulateApproval && orderId.startsWith("MOCK-");
+}
+
 /* ------------------------------ checkout context ------------------------------ */
 
 export interface CheckoutContext {
