@@ -520,6 +520,8 @@ export interface PaymentOrder {
   gamerId?: string;
   /** UNCONFIRMED: recipient display name (donations). */
   gamerTag?: string;
+  /** Subscriptions only: the plan being bought. */
+  plan?: SubscriptionPlan;
   /** UNCONFIRMED. */
   createdAt?: IsoDate;
 }
@@ -533,6 +535,8 @@ export interface PaymentOrder {
  */
 export const PAYPAL_RETURN_PARAM = {
   ORDER_ID: "orderId",
+  /** Subscriptions: PayPal returns `subscription_id` (plus `ba_token` and `token`, not used). */
+  SUBSCRIPTION_ID: "subscription_id",
   TOKEN: "token",
   CANCELLED: "cancelled",
 } as const;

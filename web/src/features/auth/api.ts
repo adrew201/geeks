@@ -1,5 +1,6 @@
 import { api, ApiError } from "../../lib/api-client.ts";
 import { toApiRole } from "../../lib/role-adapter.ts";
+import { setToken, type Session } from "../../lib/session.ts";
 import { API_ERROR_CODE, type AuthResponse, type LoginRequest, type Role, type SignupRequest } from "../../types/api.ts";
 
 // README §14: POST /auth/signup and POST /auth/login (Rabasa). Public routes: no JWT sent.
@@ -15,6 +16,16 @@ function tokenFrom(response: unknown): string | null {
   if (typeof response !== "object" || response === null) return null;
   const { token } = response as Partial<AuthResponse>;
   return typeof token === "string" && token !== "" ? token : null;
+}
+
+/**
+ * GET /auth/me re-reads role and tier from the database and returns a fresh token. Used after
+ * a subscription activates, so the session shows the new tier without logging out.
+ * Returns the new session, or null if no token came back.
+ */
+export async function refreshSession(): Promise<Session | null> {
+  const token = tokenFrom(await api.get<AuthResponse>("/auth/me"));
+  return token ? setToken(token) : null;
 }
 
 export async function login(credentials: LoginRequest): Promise<string> {

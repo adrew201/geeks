@@ -8,6 +8,7 @@ import { StatusPanel } from "../../components/ui/StatusPanel.tsx";
 import { formatMoney } from "../../lib/format-money.ts";
 import { PAYMENT_PURPOSE, PAYPAL_RETURN_PARAM } from "../../types/api.ts";
 import { loadCheckoutContext } from "./approval.ts";
+import { refreshSession } from "../auth/api.ts";
 import { PaymentStatus, type PaymentSummaryRow } from "./PaymentStatus.tsx";
 import { PURPOSE_COPY, isTerminal, paymentView } from "./payment-view.ts";
 import { useOrderStatus } from "./use-order-status.ts";
@@ -19,7 +20,11 @@ import { useOrderStatus } from "./use-order-status.ts";
 
 export default function PaymentReturnPage() {
   const [params] = useSearchParams();
-  const orderId = params.get(PAYPAL_RETURN_PARAM.ORDER_ID) ?? params.get(PAYPAL_RETURN_PARAM.TOKEN);
+  // subscription_id before token: on a subscription return, `token` is not the subscription id.
+  const orderId =
+    params.get(PAYPAL_RETURN_PARAM.ORDER_ID) ??
+    params.get(PAYPAL_RETURN_PARAM.SUBSCRIPTION_ID) ??
+    params.get(PAYPAL_RETURN_PARAM.TOKEN);
   const cancelledHint = params.has(PAYPAL_RETURN_PARAM.CANCELLED);
 
   useEffect(() => {
@@ -50,6 +55,14 @@ function OrderReturn({ orderId, cancelledHint }: { orderId: string; cancelledHin
   const view = paymentView(status, cancelledHint);
 
   const purpose = status.order?.purpose ?? context?.purpose ?? PAYMENT_PURPOSE.DONATION;
+
+  // A confirmed subscription means the webhook has made the user PAID, but the current token
+  // still says FREE. Swap in a fresh one so the new tier shows without logging out.
+  const subscriptionConfirmed = view === "confirmed" && purpose === PAYMENT_PURPOSE.SUBSCRIPTION;
+  useEffect(() => {
+    if (subscriptionConfirmed) refreshSession().catch(() => {});
+  }, [subscriptionConfirmed]);
+
   const copy = PURPOSE_COPY[purpose] ?? PURPOSE_COPY[PAYMENT_PURPOSE.DONATION];
   const recipientName = status.order?.gamerTag ?? context?.recipientName;
   const amount = status.order?.amount ?? context?.amount;

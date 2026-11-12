@@ -9,6 +9,11 @@ import { Skeleton } from "../../components/ui/Skeleton.tsx";
 import { cn } from "../../lib/cn.ts";
 import type { LeaderboardEntry } from "../../types/api.ts";
 import { SCORE_LABEL, formatScore, rankTextClass } from "./rank-styles.ts";
+import { QuickDonateButton, type QuickDonateGamer } from "../payments/QuickDonateButton.tsx";
+
+function toDonateGamer(row: LeaderboardEntry): QuickDonateGamer {
+  return { gamerId: row.gamerId, gamerTag: row.gamerTag, game: row.primaryGame, region: row.region, radScore: row.radScore };
+}
 
 // Plain table for now; AG Grid arrives with the dashboards step.
 // 10D Trend column hidden: no trend field in the contract. The 10D "ID:" line under the gamer
@@ -125,14 +130,17 @@ export function RankingTable({ rows, meId, totalRows, searching, onClearFilters 
                         My Profile
                       </ButtonLink>
                     ) : (
-                      <ButtonLink
-                        to={gamerProfilePath(row.gamerId)}
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`${row.gamerTag}'s profile`}
-                      >
-                        Profile
-                      </ButtonLink>
+                      <div className="flex items-center justify-end gap-2">
+                        <ButtonLink
+                          to={gamerProfilePath(row.gamerId)}
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`${row.gamerTag}'s profile`}
+                        >
+                          Profile
+                        </ButtonLink>
+                        <QuickDonateButton gamer={toDonateGamer(row)} />
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -179,9 +187,12 @@ export function RankingCards({ rows, meId, onClearFilters }: RankingsProps) {
                 </p>
               </div>
             </div>
-            <span className={cn("font-display font-bold", isMe ? "text-primary" : "text-success")}>
-              {formatScore(row.radScore)}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className={cn("font-display font-bold", isMe ? "text-primary" : "text-success")}>
+                {formatScore(row.radScore)}
+              </span>
+              {!isMe && <QuickDonateButton gamer={toDonateGamer(row)} compact />}
+            </div>
           </li>
         );
       })}

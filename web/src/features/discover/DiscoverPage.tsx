@@ -21,6 +21,10 @@ import { formatNumber } from "../profile/profile-model.ts";
 import { TalentByGameChart } from "./TalentByGameChart.tsx";
 import { TalentGrid } from "./TalentGrid.tsx";
 import { useDiscover, type Load } from "./use-discover.ts";
+import { useSession } from "../../lib/session.ts";
+import { entitlementsFor } from "../plans/plans.ts";
+import { RecommendationSettingsCard } from "./RecommendationSettingsCard.tsx";
+import { applySettings, useRecommendationSettings } from "./recommendation-settings.ts";
 
 // /discover: page 11 (Talent Discovery Dashboard), coaches and sponsors.
 // 11D sections kept: overview stats, search + filters, featured gamers, browse-all grid.
@@ -60,6 +64,22 @@ export default function DiscoverPage() {
   );
   const filtersActive = search !== "" || game !== ALL || region !== ALL;
 
+  // Coaches: the AI matches pass through their recommendation settings (limits from their plan).
+  const recommendations = entitlementsFor(useSession()).recommendations;
+  const [settings, setSettings] = useRecommendationSettings();
+  const matchLoad = matches.value;
+  const shownMatches = useMemo<Load<CoachMatch[]>>(
+    () =>
+      matchLoad.status === "ready" && recommendations
+        ? { status: "ready", data: applySettings(matchLoad.data, settings, recommendations) }
+        : matchLoad,
+    [matchLoad, settings, recommendations],
+  );
+  const matchGames = useMemo(
+    () => [...new Set([...games, ...(matchLoad.status === "ready" ? matchLoad.data.map((m) => m.game) : [])])].sort(),
+    [games, matchLoad],
+  );
+
   function clearFilters() {
     setSearch("");
     setGame(ALL);
@@ -94,9 +114,18 @@ export default function DiscoverPage() {
           </Card>
         ) : (
           <>
+            {isCoach && recommendations && (
+              <RecommendationSettingsCard
+                settings={settings}
+                onChange={setSettings}
+                allowed={recommendations}
+                games={matchGames}
+                regions={regions}
+              />
+            )}
             <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
               {isCoach ? (
-                <MatchesSection load={matches.value} onRetry={matches.reload} />
+                <MatchesSection load={shownMatches} onRetry={matches.reload} />
               ) : (
                 <FeaturedSection load={talent.value} />
               )}
@@ -359,7 +388,8 @@ function MatchesSection({ load, onRetry }: { load: Load<CoachMatch[]>; onRetry: 
           />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-3">
-            {load.data.slice(0, FEATURED_COUNT).map((match) => (
+            {/* Already filtered and capped by the coach's recommendation settings. */}
+            {load.data.map((match) => (
               <li key={match.gamerId}>
                 <FeaturedCard
                   to={gamerProfilePath(match.gamerId)}

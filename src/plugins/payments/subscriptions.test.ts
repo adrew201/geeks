@@ -15,7 +15,13 @@ const db = vi.hoisted(() => {
     findFirst: async ({ where }: { where: Row }) => state.subs.find((s) => matches(s, where)) ?? null,
     findUnique: async ({ where }: { where: Row }) => state.subs.find((s) => matches(s, where)) ?? null,
     create: async ({ data }: { data: Row }) => {
-      const row = { id: `sub-${state.subs.length + 1}`, currentPeriodStart: null, currentPeriodEnd: null, ...data };
+      const row = {
+        id: `sub-${state.subs.length + 1}`,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        createdAt: new Date(),
+        ...data,
+      };
       state.subs.push(row);
       return row;
     },
@@ -115,6 +121,25 @@ describe("POST /api/v1/subscriptions", () => {
   it("rejects a plan name outside the two allowed values (400)", async () => {
     const res = await call("POST", "/api/v1/subscriptions", { sub: GAMER, role: "GAMER" }, { plan: "FREE" });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("GET /api/v1/orders/:subscriptionId (the /pay/return poll)", () => {
+  it("is PENDING until the ACTIVATED webhook, then COMPLETED", async () => {
+    await call("POST", "/api/v1/subscriptions", { sub: GAMER, role: "GAMER" }, { plan: "PAID_GAMER" });
+    const before = await call("GET", `/api/v1/orders/${PAYPAL_SUB}`, { sub: GAMER, role: "GAMER" });
+    expect(before.statusCode).toBe(200);
+    expect(before.json()).toMatchObject({ orderId: PAYPAL_SUB, status: "PENDING", purpose: "SUBSCRIPTION", plan: "PAID_GAMER" });
+
+    await handlers["BILLING.SUBSCRIPTION.ACTIVATED"]!(db.tx as never, event("BILLING.SUBSCRIPTION.ACTIVATED", PAYPAL_SUB) as never);
+    const after = await call("GET", `/api/v1/orders/${PAYPAL_SUB}`, { sub: GAMER, role: "GAMER" });
+    expect(after.json().status).toBe("COMPLETED");
+  });
+
+  it("is 404 for someone else's subscription or an unknown id", async () => {
+    await call("POST", "/api/v1/subscriptions", { sub: GAMER, role: "GAMER" }, { plan: "PAID_GAMER" });
+    expect((await call("GET", `/api/v1/orders/${PAYPAL_SUB}`, { sub: COACH, role: "COACH" })).statusCode).toBe(404);
+    expect((await call("GET", "/api/v1/orders/I-NOPE", { sub: GAMER, role: "GAMER" })).statusCode).toBe(404);
   });
 });
 

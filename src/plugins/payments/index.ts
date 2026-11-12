@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { createDonation, getDonationOrder } from "./donations.js";
 import { getWallet, withdraw } from "./wallet.js";
 import { requireVerifiedAdult } from "../../middleware/guards.js";
-import { requestCancel, startSubscription, type PlanName } from "./subscriptions.js";
+import { getSubscriptionOrder, requestCancel, startSubscription, type PlanName } from "./subscriptions.js";
 
 const subscribeSchema = {
   body: {
@@ -52,10 +52,12 @@ const paymentsPlugin: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(order);
   });
 
-  // Polled by /pay/return. COMPLETED only after PayPal's capture, never because the payer came back.
+  // Polled by /pay/return. COMPLETED only after PayPal's capture (donations) or the verified
+  // ACTIVATED webhook (subscriptions), never because the payer came back.
+  // PayPal subscription ids start with "I-"; everything else is a donation order id.
   app.get("/orders/:id", { schema: orderSchema, preHandler: app.authenticate }, async (req) => {
     const { id } = req.params as { id: string };
-    return getDonationOrder(id, req.user.sub);
+    return id.startsWith("I-") ? getSubscriptionOrder(id, req.user.sub) : getDonationOrder(id, req.user.sub);
   });
 
   // Own wallet only: there is no :userId, the user comes from the token.

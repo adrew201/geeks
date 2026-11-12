@@ -48,6 +48,32 @@ export async function startSubscription(user: { id: string; role: Role }, plan: 
   return created;
 }
 
+/** Subscription status → the order status /pay/return understands. Only ACTIVE is success. */
+const ORDER_STATUS: Record<string, string> = {
+  APPROVAL_PENDING: "PENDING",
+  ACTIVE: "COMPLETED",
+  PAST_DUE: "FAILED",
+  SUSPENDED: "FAILED",
+  CANCELLED: "CANCELLED",
+  EXPIRED: "EXPIRED",
+};
+
+/**
+ * Status for /pay/return after PayPal's subscription approval (it returns `subscription_id`).
+ * Own subscriptions only. COMPLETED means the verified ACTIVATED webhook has made the user PAID.
+ */
+export async function getSubscriptionOrder(subscriptionId: string, userId: string) {
+  const sub = await prisma.subscription.findUnique({ where: { paypalSubscriptionId: subscriptionId } });
+  if (!sub || sub.userId !== userId) throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
+  return {
+    orderId: subscriptionId,
+    status: ORDER_STATUS[sub.status] ?? "PENDING",
+    purpose: "SUBSCRIPTION" as const,
+    plan: sub.plan,
+    createdAt: sub.createdAt.toISOString(),
+  };
+}
+
 /** Asks PayPal to cancel the caller's active subscription. The tier flips on the CANCELLED webhook. */
 export async function requestCancel(userId: string): Promise<{ subscriptionId: string }> {
   const sub = await prisma.subscription.findFirst({
