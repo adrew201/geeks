@@ -37,6 +37,31 @@ export function validateLoginPassword(password: string): string | null {
   return password ? null : "Enter your password.";
 }
 
+/** Same limits as the API (src/lib/age.ts): 13 to join, 18 to receive donations. */
+export const MIN_SIGNUP_AGE = 13;
+export const ADULT_AGE = 18;
+export const DATE_OF_BIRTH_HINT = "Gamers must be 18 or older to receive donations.";
+
+/** Whole years from a YYYY-MM-DD date of birth to today (UTC calendar dates). */
+export function ageFrom(dateOfBirth: string, now = new Date()): number {
+  const dob = new Date(`${dateOfBirth}T00:00:00Z`);
+  let age = now.getUTCFullYear() - dob.getUTCFullYear();
+  if (now.getUTCMonth() < dob.getUTCMonth() || (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
+/** Signup only. `value` is the YYYY-MM-DD string from <input type="date">. */
+export function validateDateOfBirth(value: string): string | null {
+  if (!value) return "Enter your date of birth.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) return "Enter a valid date of birth.";
+  const age = ageFrom(value);
+  if (age < 0 || age > 120) return "Enter a valid date of birth.";
+  if (age < MIN_SIGNUP_AGE) return `You must be at least ${MIN_SIGNUP_AGE} to join Play2Pro.`;
+  return null;
+}
+
 export const TERMS_REQUIRED = "Accept the Terms of Service and Privacy Policy to continue.";
 
 export type FieldErrors<K extends string> = Partial<Record<K, string>>;

@@ -74,6 +74,18 @@ describe("getPublicProfile", () => {
     expect(p).toMatchObject({ id: "prof-1", gamerTags: ["ShadowViper"], isVerifiedAdult: true });
   });
 
+  it("lets an unverified gamer receive donations when 18+ by date of birth, never exposing the date", async () => {
+    const withDob = (dateOfBirth: Date | null) =>
+      deps({ findProfile: async () => ({ ...profile, user: { region: "KE", isVerifiedAdult: false, dateOfBirth } }) });
+    const adult = await getPublicProfile(withDob(new Date("2000-01-01T00:00:00Z")), { id: "user-1" });
+    expect(adult.isVerifiedAdult).toBe(true);
+    expect(JSON.stringify(adult)).not.toContain("2000-01-01");
+    const nextYear = new Date();
+    nextYear.setUTCFullYear(nextYear.getUTCFullYear() - 17);
+    expect((await getPublicProfile(withDob(nextYear), { id: "user-1" })).isVerifiedAdult).toBe(false);
+    expect((await getPublicProfile(withDob(null), { id: "user-1" })).isVerifiedAdult).toBe(false);
+  });
+
   it("hides a private profile from visitors and other users but not from its owner", async () => {
     const priv = deps({ findProfile: async () => ({ ...profile, visibility: false }) });
     await expect(getPublicProfile(priv, { id: "user-1" })).rejects.toMatchObject({ status: 403 });

@@ -2,6 +2,7 @@ import type { Prisma, Role, Tier } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import { MIN_SIGNUP_AGE, ageOn } from "../../lib/age.js";
 
 export type SignupRole = "GAMER" | "COACH" | "SPONSOR";
 
@@ -42,14 +43,24 @@ export async function signup(input: {
   password: string;
   displayName: string;
   role: SignupRole;
+  /** YYYY-MM-DD, already format-checked by the route schema. */
+  dateOfBirth: string;
 }): Promise<PublicUser> {
+  const dateOfBirth = new Date(`${input.dateOfBirth}T00:00:00Z`);
+  const age = ageOn(dateOfBirth);
+  if (Number.isNaN(age) || dateOfBirth.getTime() > Date.now() || age > 120) {
+    throw new AppError(400, "VALIDATION_ERROR", "Enter a valid date of birth");
+  }
+  if (age < MIN_SIGNUP_AGE) {
+    throw new AppError(400, "TOO_YOUNG", `You must be at least ${MIN_SIGNUP_AGE} to join Play2Pro`);
+  }
   const email = input.email.trim().toLowerCase();
   const passwordHash = await hashPassword(input.password);
   try {
     // Tier always starts FREE; only a verified subscription webhook makes it PAID.
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
-        data: { email, passwordHash, displayName: input.displayName.trim(), role: input.role },
+        data: { email, passwordHash, displayName: input.displayName.trim(), role: input.role, dateOfBirth },
       });
       if (input.role === "GAMER") {
         await tx.gamerProfile.create({

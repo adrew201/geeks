@@ -2,6 +2,7 @@
 // Unknown routes reject with NOT_FOUND so missing mocks are obvious.
 
 import { ApiError } from "../lib/api-error.ts";
+import { validateDateOfBirth } from "../features/auth/validation.ts";
 import { fromApiRole, toApiRole } from "../lib/role-adapter.ts";
 import { getSession as getRealSession, type Session } from "../lib/session.ts";
 import {
@@ -270,6 +271,9 @@ route("POST", "/auth/signup", ({ body }): AuthResponse => {
   if (displayName.length < 1 || displayName.length > 60) {
     throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, "Display name must be 1 to 60 characters.");
   }
+  // Same rule as the API: a valid date of birth, 13 or older.
+  const dobError = validateDateOfBirth(typeof request.dateOfBirth === "string" ? request.dateOfBirth : "");
+  if (dobError) throw new ApiError(400, API_ERROR_CODE.VALIDATION_ERROR, dobError);
   const account: User = {
     id: `usr_new_${mockAccounts.length + 1}`,
     email: String(request.email).trim().toLowerCase(),

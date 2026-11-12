@@ -48,7 +48,21 @@ function makeApp() {
   return app;
 }
 
-const gamer = { email: "Gamer@Example.com", password: "supersecret1", displayName: "Gamer One", role: "GAMER" };
+const gamer = {
+  email: "Gamer@Example.com",
+  password: "supersecret1",
+  displayName: "Gamer One",
+  role: "GAMER",
+  dateOfBirth: "2000-05-20",
+};
+
+/** YYYY-MM-DD for someone who turns `years` old `offsetDays` days from today (negative = already did). */
+function birthDate(years: number, offsetDays = 0): string {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - years);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
 
 describe("auth", () => {
   beforeEach(() => {
@@ -106,6 +120,32 @@ describe("auth", () => {
       expect(res.json().error.code).toBe("VALIDATION_ERROR");
     }
     expect(db.state.users).toHaveLength(0);
+  });
+
+  it("requires a valid date of birth and stores it", async () => {
+    const app = makeApp();
+    for (const bad of [{ dateOfBirth: undefined }, { dateOfBirth: "20/05/2000" }, { dateOfBirth: "2000-13-40" }]) {
+      const res = await app.inject({ method: "POST", url: "/auth/signup", payload: { ...gamer, ...bad } });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    }
+    const future = await app.inject({ method: "POST", url: "/auth/signup", payload: { ...gamer, dateOfBirth: birthDate(-1) } });
+    expect(future.statusCode).toBe(400);
+    expect(db.state.users).toHaveLength(0);
+
+    const ok = await app.inject({ method: "POST", url: "/auth/signup", payload: gamer });
+    expect(ok.statusCode).toBe(201);
+    expect((db.state.users[0].dateOfBirth as Date).toISOString()).toBe("2000-05-20T00:00:00.000Z");
+    expect(ok.json().user).not.toHaveProperty("dateOfBirth");
+  });
+
+  it("refuses under-13s and accepts someone who turned 13 today", async () => {
+    const app = makeApp();
+    const young = await app.inject({ method: "POST", url: "/auth/signup", payload: { ...gamer, dateOfBirth: birthDate(13, 1) } });
+    expect(young.statusCode).toBe(400);
+    expect(young.json().error.code).toBe("TOO_YOUNG");
+    const ok = await app.inject({ method: "POST", url: "/auth/signup", payload: { ...gamer, dateOfBirth: birthDate(13) } });
+    expect(ok.statusCode).toBe(201);
   });
 
   it("logs in with the right password and refuses the wrong one", async () => {
