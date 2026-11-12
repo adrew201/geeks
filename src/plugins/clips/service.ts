@@ -40,6 +40,22 @@ export async function createClip(input: CreateClipInput) {
   return clip;
 }
 
+// Migration plan O3: thumbnails derive from the YouTube video id at read time.
+// No thumbnail column exists, so custom-upload thumbnails would need a
+// migration later; YouTube covers the demo clips.
+export function youtubeThumbnailId(videoUrl: string): string | null {
+  const m =
+    /(?:youtube\.com\/(?:watch\?[^#]*v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(
+      videoUrl,
+    );
+  return m ? m[1] : null;
+}
+
+export function thumbnailUrlForClip(videoUrl: string): string | null {
+  const id = youtubeThumbnailId(videoUrl);
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+}
+
 // README §13 Clip shape that web/src/types/api.ts reads. DB column names differ.
 export function toApiClip(row: Clip) {
   return {
@@ -54,6 +70,7 @@ export function toApiClip(row: Clip) {
     aiQualityScore: row.aiQualityScore,
     eloRating: row.eloRating,
     status: row.aiAnalysisStatus === "COMPLETED" ? "ANALYSED" : "PENDING",
+    thumbnailUrl: thumbnailUrlForClip(row.videoUrl),
   };
 }
 
