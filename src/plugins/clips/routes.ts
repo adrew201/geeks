@@ -60,15 +60,17 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
     return getFeedWithAds(q.cursor, q.game);
   });
 
-  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
+  // Migration plan O2: direction only; voterId comes from the JWT.
+  app.post<{ Params: { id: string }; Body: { direction: "UP" | "DOWN" } }>(
     "/clips/:id/vote",
     {
+      preHandler: app.authenticate,
       schema: {
         body: {
           type: "object",
-          required: ["voterId", "direction"],
+          required: ["direction"],
+          additionalProperties: false,
           properties: {
-            voterId: { type: "string" },
             direction: { type: "string", enum: ["UP", "DOWN"] },
           },
         },
@@ -76,9 +78,9 @@ export const clipRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       try {
-        const b = req.body as { voterId: string; direction: "UP" | "DOWN" };
+        const clipId = (req.params as { id: string }).id;
         return reply.send(
-          await voteOnClip({ clipId: (req.params as { id: string }).id, ...b })
+          await voteOnClip({ clipId, voterId: req.user.sub, direction: req.body.direction })
         );
       } catch (err) {
         return sendError(reply, err);
