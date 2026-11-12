@@ -1,6 +1,6 @@
 # Play2Pro UI: backend sync guide
 
-Branch `web/ui-reskin` (from `origin/main`). The new UI changes only the look and layout. API calls, types, adapters and mocks are unchanged, so the same switches (`VITE_USE_MOCKS`, `VITE_REAL_API`) work as before.
+Branch `web/ui-reskin` (from `origin/main`). The new UI changes the look and layout. The one API-facing change is the vote body (`{ direction }` only, see section 4). The switches (`VITE_USE_MOCKS`, `VITE_REAL_API`) work as before.
 
 ## 1. Local run
 
@@ -28,7 +28,7 @@ VITE_REAL_API=/auth,/api/v1/leaderboard,/api/v1/feed,/api/v1/gamers
 | --- | --- | --- | --- | --- |
 | Login, signup | `/login`, `/signup` | `/auth/*` | `/auth` | Real (live, tested by Rabasa 10 Nov) |
 | Arena feed | `/feed` | `GET /api/v1/feed?cursor=` | `/api/v1/feed` | Real shape matches (checked live 12 Nov) |
-| Arena vote | `/feed` | `POST /api/v1/clips/:id/vote` | `/api/v1/clips` | **Blocked**: see section 4 |
+| Arena vote | `/feed` | `POST /api/v1/clips/:id/vote` | `/api/v1/clips` | Real (body is direction only; fixed 12 Nov) |
 | Leaderboard | `/leaderboard` | `GET /api/v1/leaderboard` | `/api/v1/leaderboard` | Real |
 | Gamer ID, dashboard | `/gamers/:id`, `/dashboard` | `GET /api/v1/gamers/:id[/dashboard]` | `/api/v1/gamers` | Real when the API is on `main` (see section 5) |
 | Wallet | `/wallet` | `GET /api/v1/wallet`, `POST /api/v1/wallet/withdraw` | `/api/v1/wallet` | Real when deployed |
@@ -46,21 +46,9 @@ Route paths and API paths are listed in `web/src/components/layout/nav-config.ts
 3. When every screen is green, set `VITE_USE_MOCKS=false`, then delete the mock code (planned by Nigel as N6).
 4. Rollback: remove the prefix from `VITE_REAL_API`.
 
-## 4. Known blocker: vote sends `voterId`
+## 4. Vote contract (fixed)
 
-`web/src/features/feed/api.ts` sends `{ voterId, direction }`. The API now takes the voter from the token (`src/plugins/clips/routes.ts`, route `POST /clips/:id/vote`) and sets `additionalProperties: false`, so the request fails with **400**. The web then shows "We couldn't submit your vote". Mock votes still work.
-
-Suggested fix for **Nigel** (his folder, not changed by this branch):
-
-```ts
-// web/src/features/feed/api.ts
-export function voteOnClip(clipId: string, direction: VoteDirection): Promise<VoteResponse> {
-  const body: VoteRequest = { direction };   // voterId comes from the JWT
-  return api.post<VoteResponse>(`/api/v1/clips/${encodeURIComponent(clipId)}/vote`, body);
-}
-```
-
-Then `VoteRequest` in `web/src/types/api.ts` should drop `voterId`, and `/api/v1/clips` can be added to `VITE_REAL_API`. Until then, keep it out.
+The API takes the voter from the JWT and rejects extra body fields (`additionalProperties: false`). The web sent `voterId`, which returned 400. Fixed on this branch in `web/src/features/feed/api.ts` (body is `{ direction }`), `web/src/types/api.ts` (`VoteRequest`) and `web/src/mocks/index.ts` (mock checks `direction`). Nigel and Obonyo should review these edits.
 
 ## 5. Backend version
 
